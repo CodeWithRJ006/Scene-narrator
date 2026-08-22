@@ -12,16 +12,25 @@ import { SpeechSynthesizer } from './core/SpeechSynthesizer.js';
 import { SceneNarrator }     from './modules/SceneNarrator.js';
 import { SubtitleManager }   from './modules/SubtitleManager.js';
 import { UIController, syncCanvasDimensions }       from './ui/UIController.js';
+import { VoiceCommand }      from './core/VoiceCommand.js';
+import { NavigationEngine }  from './core/NavigationEngine.js';
 
 export class App {
     constructor() {
         this.ui       = new UIController();
         this.speech   = new SpeechSynthesizer();
         this.detector = new EdgeDetector('overlay');
-        this.subtitles = new SubtitleManager('subtitle-strip'); // Updated to use subtitle-strip
+        this.subtitles = new SubtitleManager('subtitle-strip'); 
         this.camera   = null;
         this.urgency  = null;
         this.narrator = null;
+        this.navEngine = new NavigationEngine(this.speech);
+        this.voice    = new VoiceCommand((target) => {
+            if (target) {
+                this.navEngine.setTarget(target);
+                document.getElementById('target-radar')?.classList.remove('hidden');
+            }
+        });
 
         this._bindEvents();
     }
@@ -43,6 +52,17 @@ export class App {
             () => this.speech.speakT1('Warning. Person 1.2 meters directly ahead.'),
             () => this.speech.speakT2('Chair on your right, about 2.5 meters away.')
         );
+
+        // Voice Command Trigger
+        const btnVoice = document.getElementById('btn-voice');
+        if (btnVoice) {
+            btnVoice.addEventListener('click', () => {
+                this.speech.synth.cancel(); // Stop current speech
+                const u = new SpeechSynthesisUtterance("Listening");
+                this.speech.synth.speak(u);
+                this.voice.startListening();
+            });
+        }
     }
 
     /* ─────────── Stage 1 → Stage 2 ─────────── */
@@ -139,6 +159,7 @@ export class App {
                             }
                         }
 
+                        this.navEngine.process(preds);
                         this._updateHUD(preds);
                         if (!triggeredInspect) {
                             this._dispatchSpeech(preds, spoken);
