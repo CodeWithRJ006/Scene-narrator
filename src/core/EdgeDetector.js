@@ -9,34 +9,50 @@ export class EdgeDetector {
     constructor(canvasId) {
         this.canvas = document.getElementById(canvasId);
         this.ctx    = this.canvas ? this.canvas.getContext('2d') : null;
-        this.model  = null;
         this.isReady = false;
+        
+        // Setup Worker
+        this.worker = new Worker(new URL('../worker.js', import.meta.url), { type: 'module' });
+        this.resolves = new Map();
+        this.msgId = 0;
+
+        this.worker.onmessage = (e) => {
+            if (e.data.type === 'ready') {
+                this.isReady = true;
+                console.log("Vision Engine (Worker): ONLINE");
+            } else if (e.data.type === 'result' || e.data.type === 'error') {
+                const resolve = this.resolves.get(e.data.id);
+                if (resolve) {
+                    resolve(e.data.predictions || []);
+                    this.resolves.delete(e.data.id);
+                }
+            }
+        };
         
         // LERP tracker for smooth rendering
         this.tracked = [];
     }
 
     async initialize() {
-        try {
-            await tf.setBackend('webgl');
-            await tf.ready();
-            // Use the bulletproof COCO-SSD (MobileNetV2) as the guaranteed core 
-            // This ensures 100% reliability on mobile Chrome without CORS or memory crashes
-            this.model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
-            this.isReady = true;
-            console.log("Vision Engine: ONLINE");
-        } catch (error) {
-            console.error("Vision Engine Failed:", error);
-        }
+        this.worker.postMessage({ type: 'init' });
+        // Return a promise that resolves when worker is ready
+        return new Promise(resolve => {
+            const check = setInterval(() => {
+                if (this.isReady) {
+                    clearInterval(check);
+                    resolve();
+                }
+            }, 100);
+        });
     }
 
-    // App.js currently calls detector.load(). We'll map it to initialize().
+    // App.js currently calls detector.load().
     async load() {
         await this.initialize();
     }
 
     async detect(videoElement) {
-        if (!this.isReady || !this.model) return [];
+        if (!this.isReady) return [];
         
         // Ensure the HUD canvas internal resolution scales perfectly over the video on mobile devices
         if (this.canvas && (this.canvas.width !== videoElement.videoWidth || this.canvas.height !== videoElement.videoHeight)) {
@@ -44,18 +60,31 @@ export class EdgeDetector {
             this.canvas.height = videoElement.videoHeight;
         }
 
-        // Execute inference
-        const predictions = await this.model.detect(videoElement);
-        
-        // Normalize outputs for the SpatialReasoning engine
-        return predictions
-            .filter(p => p.score > 0.45) // Strict confidence to prevent hallucination
-            .map(p => ({
-                class: p.class,
-                className: p.class, // Mapped for SpatialReasoning compatibility
-                score: p.score,
-                bbox: [p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3]] // [x, y, width, height]
-            }));
+        try {
+            // Offload pixel data to worker via ImageBitmap
+            const bitmap = await createImageBitmap(videoElement);
+            const id = this.msgId++;
+            
+            return new Promise(resolve => {
+                this.resolves.set(id, (predictions) => {
+                    const mapped = predictions
+                        .filter(p => p.score > 0.45)
+                        .map(p => ({
+                            class: p.class,
+                            className: p.class, 
+                            score: p.score,
+                            bbox: [p.bbox[0], p.bbox[1], p.bbox[2], p.bbox[3]]
+                        }));
+                    resolve(mapped);
+                });
+                
+                // Transfer bitmap to worker to avoid main-thread copy overhead
+                this.worker.postMessage({ type: 'detect', id, bitmap }, [bitmap]);
+            });
+        } catch (e) {
+            console.error("Worker detect failed:", e);
+            return [];
+        }
     }
 
     /* ─────────────────── AR HUD Renderer ─────────────────── */

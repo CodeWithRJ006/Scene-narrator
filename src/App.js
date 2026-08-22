@@ -179,6 +179,12 @@ export class App {
         } catch (e) {
             console.error('Launch error:', e);
             this.ui.showError();
+            this.speech.speakT1("Camera access denied or unavailable. Please check permissions and tap anywhere on the screen to retry.");
+            
+            // Allow clicking anywhere to retry for blind users
+            document.body.addEventListener('click', () => {
+                location.reload();
+            }, { once: true });
         }
     }
 
@@ -204,7 +210,20 @@ export class App {
             // ── FPS Counter ──
             fpsCnt++;
             if (t - fpsT >= 500) {
-                this.ui.updateFPS(fpsCnt / ((t - fpsT) / 1000));
+                const currentFps = Math.round(fpsCnt / ((t - fpsT) / 1000));
+                this.ui.updateFPS(currentFps);
+                
+                // Live Status Bar Update
+                const liveStatus = document.getElementById('live-status');
+                const qDepth = this.speech.queue2 ? 1 : 0;
+                const statusText = `FPS: ${currentFps} | DET: ${preds.length} | Q: ${qDepth}`;
+                if (liveStatus) liveStatus.textContent = statusText;
+                
+                // Console log occasionally for demo verification
+                if (Math.random() < 0.25) {
+                    console.log(`[Health] ${statusText}`);
+                }
+
                 fpsCnt = 0;
                 fpsT = t;
             }

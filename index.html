@@ -120,8 +120,25 @@
 
         <!-- Debug Overlay (Hidden by default) -->
         <div id="debug-overlay" aria-hidden="true" style="display:none; position:absolute; top:8px; left:8px; z-index:999; background:rgba(0,0,0,0.85); color:#0f0; font-family:monospace; font-size:11px; padding:12px; border-radius:8px; border:1px solid #0f0; max-width: 250px; text-shadow: none;"></div>
+
+        <!-- Live Status Bar (Always visible minimal health check) -->
+        <div id="live-status" aria-hidden="true" style="position:absolute; top:8px; right:8px; z-index:998; background:rgba(0,0,0,0.6); color:#fff; font-family:monospace; font-size:10px; padding:4px 8px; border-radius:4px; backdrop-filter:blur(4px);">
+            FPS: -- | DET: -- | Q: --
+        </div>
     </div>
 
+    <script>
+        // Register PWA Service Worker for Offline Caching
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js').then(reg => {
+                    console.log('SW registered for offline caching:', reg.scope);
+                }).catch(err => {
+                    console.error('SW registration failed:', err);
+                });
+            });
+        }
+    </script>
     <script type="module" src="/src/main.js"></script>
 </body>
 </html>
