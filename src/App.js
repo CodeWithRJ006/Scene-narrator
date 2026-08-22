@@ -86,6 +86,24 @@ export class App {
         try {
             this.camera = new CameraManager('webcam');
             await this.camera.start();
+            
+            // Populate Camera Dropdown
+            const camSelect = document.getElementById('camera-select');
+            if (camSelect) {
+                const devices = await this.camera.getAvailableCameras();
+                devices.forEach(d => {
+                    const opt = document.createElement('option');
+                    opt.value = d.deviceId;
+                    opt.text = d.label || `Camera ${camSelect.length}`;
+                    camSelect.appendChild(opt);
+                });
+                
+                camSelect.addEventListener('change', async (e) => {
+                    const devId = e.target.value || null;
+                    await this.camera.startCamera(devId);
+                });
+            }
+
             const video = this.camera.video;
 
             this.urgency  = new SpatialReasoning(video.videoWidth, video.videoHeight);

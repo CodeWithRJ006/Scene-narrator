@@ -10,36 +10,37 @@ export class CameraManager {
      * @param {string} videoId – DOM id of the <video> element.
      */
     constructor(videoId) {
-        this.video = document.getElementById(videoId);
-        this.stream = null;
+        this.video = typeof videoId === 'string' ? document.getElementById(videoId) : videoId;
+        this.currentStream = null;
+        this.selectedDeviceId = null;
     }
 
-    /**
-     * Request the rear camera, attach to the video element, and wait for metadata.
-     * @returns {Promise<HTMLVideoElement>} The playing video element.
-     */
-    async start() {
+    async getAvailableCameras() {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        return devices.filter(device => device.kind === 'videoinput');
+    }
+
+    async startCamera(deviceId = null) {
+        if (this.currentStream) {
+            this.currentStream.getTracks().forEach(track => track.stop());
+        }
+
+        this.selectedDeviceId = deviceId;
         const constraints = {
-            audio: false,
-            video: {
-                facingMode: { ideal: "environment" },
-                width:  { ideal: 1280 },
-                height: { ideal: 720  }
-            }
+            video: deviceId 
+                ? { deviceId: { exact: deviceId } }
+                : { facingMode: { ideal: "environment" }, width: { ideal: 1280 }, height: { ideal: 720 } },
+            audio: false
         };
 
         try {
-            this.stream = await navigator.mediaDevices.getUserMedia(constraints);
+            this.currentStream = await navigator.mediaDevices.getUserMedia(constraints);
         } catch (err) {
-            // Fallback: try without facingMode (desktop / front-only devices)
-            console.warn('CameraManager: environment camera failed, trying fallback.', err);
-            this.stream = await navigator.mediaDevices.getUserMedia({
-                audio: false,
-                video: { width: { ideal: 1280 }, height: { ideal: 720 } }
-            });
+            console.warn("Retrying with loose constraints:", err);
+            this.currentStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         }
 
-        this.video.srcObject = this.stream;
+        this.video.srcObject = this.currentStream;
         this.video.setAttribute('playsinline', 'true');
         this.video.muted = true;
 
@@ -49,6 +50,11 @@ export class CameraManager {
                 resolve(this.video);
             };
         });
+    }
+
+    /** Legacy alias for App.js */
+    async start() {
+        return this.startCamera(null);
     }
 
     /**
@@ -84,9 +90,9 @@ export class CameraManager {
      * Stop all tracks and release the camera.
      */
     stop() {
-        if (this.stream) {
-            this.stream.getTracks().forEach(t => t.stop());
-            this.stream = null;
+        if (this.currentStream) {
+            this.currentStream.getTracks().forEach(t => t.stop());
+            this.currentStream = null;
         }
         if (this.video) {
             this.video.srcObject = null;

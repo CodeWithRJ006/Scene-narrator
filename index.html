@@ -79,6 +79,11 @@
             <div class="drawer-body">
                 <h2 class="drawer-title">System Controls</h2>
 
+                <label class="ctrl-label">Camera Source</label>
+                <select id="camera-select" class="ctrl-input" style="padding: 10px 14px;">
+                    <option value="">Default (Rear/Webcam)</option>
+                </select>
+
                 <label class="ctrl-label">Proximity Threshold</label>
                 <div class="slider-row">
                     <input type="range" id="proximity" min="1" max="10" value="5" class="slider">
@@ -89,7 +94,7 @@
                 <input type="password" id="api-key" placeholder="Paste key to enable Gemini 2.5 Flash" class="ctrl-input">
 
                 <div class="test-row" style="margin-bottom: 10px;">
-                    <button class="btn-test" id="btn-find-object" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">🎤 Find Object</button>
+                    <button class="btn-test" id="btn-find-object" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">🎤 Find Target</button>
                 </div>
                 <div class="test-row">
                     <button class="btn-test btn-test--red" id="test-t1">Test Tier-1 Alert</button>
