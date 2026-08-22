@@ -39,7 +39,8 @@ export class UIController {
         this.$testT2  = document.getElementById('test-t2');
 
         // Drawer state
-        this._drawerOpen = true;
+        this._drawerOpen = false;
+        this.$drawer.classList.add('collapsed');
 
         this._initDrawer();
         this._initSlider();
@@ -139,10 +140,7 @@ export class UIController {
     transitionToApp() {
         this.$land.classList.add('out');
         this.$app.classList.remove('hidden');
-        setTimeout(() => {
-            this.$drawer.classList.remove('collapsed');
-            this._drawerOpen = true;
-        }, 500);
+        // Do not force the drawer open anymore to keep mobile view clean
     }
 
     /* ──────── HUD Updates ──────── */
