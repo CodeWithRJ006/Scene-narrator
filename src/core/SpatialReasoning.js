@@ -19,6 +19,9 @@ const REAL_HEIGHTS = {
     suitcase: 0.7, backpack: 0.55, handbag: 0.35,
     'traffic light': 0.6, 'stop sign': 0.75, 'fire hydrant': 0.6,
     'potted plant': 0.5,
+    'cell phone': 0.15, laptop: 0.25, watch: 0.05, 
+    'glasses': 0.05, 'specs': 0.05, 
+    'earphones': 0.02, 'earbuds': 0.02, keys: 0.08,
     default: 1.0
 };
 
