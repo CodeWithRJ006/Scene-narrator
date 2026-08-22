@@ -25,7 +25,8 @@ export class App {
         this.urgency  = null;
         this.narrator = null;
         this.navEngine = new NavigationEngine(this.speech);
-        this.voice    = new VoiceCommand(async (intent) => {
+        this.voice = new VoiceCommand(async (intent) => {
+            this.speech.playEarcon('stop');
             if (!intent) return;
             if (typeof intent === 'string') intent = { type: 'TARGET', payload: intent };
             
@@ -99,9 +100,8 @@ export class App {
         const btnVoice = document.getElementById('voice-btn');
         if (btnVoice) {
             btnVoice.addEventListener('click', () => {
-                this.speech.synth.cancel(); // Stop current speech
-                const u = new SpeechSynthesisUtterance("Listening");
-                this.speech.synth.speak(u);
+                this.speech.synth.cancel(); // Barge-in stop current speech
+                this.speech.playEarcon('start');
                 this.voice.startListening();
             });
         }
@@ -110,9 +110,9 @@ export class App {
         const btnFindObj = document.getElementById('btn-find-object');
         if (btnFindObj) {
             btnFindObj.addEventListener('click', () => {
-                this.speech.synth.cancel(); // Stop current speech
-                const u = new SpeechSynthesisUtterance("Listening");
-                this.speech.synth.speak(u);
+                this.speech.synth.cancel(); // Barge-in stop current speech
+                this.speech.playEarcon('start');
+                this.voice.startListening();
                 this.voice.startListening();
             });
         }
@@ -322,9 +322,11 @@ export class App {
             const dedupeKey = `${p.className}_${p.urgencyTier}`;
 
             if (p.urgencyTier === TIER.HAZARD) {
+                if (p.lateral) this.speech.playSpatialPing(p.lateral);
                 this.speech.speakT1(text, dedupeKey);
                 spoken.set(p.trackId, { lastTime: now, lastTier: p.urgencyTier });
             } else if (p.urgencyTier === TIER.CAUTION) {
+                if (p.lateral) this.speech.playSpatialPing(p.lateral);
                 this.speech.speakT2(text, dedupeKey);
                 spoken.set(p.trackId, { lastTime: now, lastTier: p.urgencyTier });
             }

@@ -35,9 +35,21 @@ export class SpeechSynthesizer {
     }
 
     /**
-     * Call inside a direct user click to unlock iOS/Android audio.
+     * Unlock speech synthesis and initialize Web Audio API for spatial pings.
+     * Must be called on user interaction.
      */
     unlockAudio() {
+        if (!this.synth) return;
+        const u = new SpeechSynthesisUtterance('');
+        u.volume = 0;
+        this.synth.speak(u);
+
+        // Initialize Web Audio Context for Earcons and Spatial Audio
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (AudioContext) {
+            this.audioCtx = new AudioContext();
+        }
+
         if (this.isUnlocked) return;
         // Force a silent utterance, followed immediately by a vocal confirmation
         const prime = new SpeechSynthesisUtterance("");
@@ -52,6 +64,72 @@ export class SpeechSynthesizer {
             this.lastEnd = performance.now();
             this._hud('System Online');
         }, 100);
+    }
+
+    /**
+     * Play a directional sonar ping using Web Audio API.
+     * @param {string} lateral - 'left', 'ahead', or 'right'
+     */
+    playSpatialPing(lateral) {
+        if (!this.audioCtx) return;
+        if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        let panner = null;
+        
+        if (this.audioCtx.createStereoPanner) {
+            panner = this.audioCtx.createStereoPanner();
+            panner.pan.value = lateral === 'left' ? -0.8 : (lateral === 'right' ? 0.8 : 0);
+        }
+        
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(lateral === 'ahead' ? 800 : 1200, this.audioCtx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(lateral === 'ahead' ? 400 : 600, this.audioCtx.currentTime + 0.15);
+
+        gain.gain.setValueAtTime(0, this.audioCtx.currentTime);
+        gain.gain.linearRampToValueAtTime(0.2, this.audioCtx.currentTime + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.15);
+
+        osc.connect(gain);
+        if (panner) {
+            gain.connect(panner);
+            panner.connect(this.audioCtx.destination);
+        } else {
+            gain.connect(this.audioCtx.destination);
+        }
+
+        osc.start();
+        osc.stop(this.audioCtx.currentTime + 0.2);
+    }
+
+    /**
+     * Play an earcon to indicate barge-in listening state.
+     * @param {string} type - 'start' or 'stop'
+     */
+    playEarcon(type) {
+        if (!this.audioCtx) return;
+        if (this.audioCtx.state === 'suspended') this.audioCtx.resume();
+        
+        const osc = this.audioCtx.createOscillator();
+        const gain = this.audioCtx.createGain();
+        osc.type = 'triangle';
+        
+        if (type === 'start') {
+            osc.frequency.setValueAtTime(600, this.audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(900, this.audioCtx.currentTime + 0.1);
+        } else {
+            osc.frequency.setValueAtTime(900, this.audioCtx.currentTime);
+            osc.frequency.linearRampToValueAtTime(600, this.audioCtx.currentTime + 0.1);
+        }
+        
+        gain.gain.setValueAtTime(0.1, this.audioCtx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, this.audioCtx.currentTime + 0.2);
+        
+        osc.connect(gain);
+        gain.connect(this.audioCtx.destination);
+        osc.start();
+        osc.stop(this.audioCtx.currentTime + 0.25);
     }
 
     /* ═══════════════════ PUBLIC API ═══════════════════ */
@@ -143,20 +221,20 @@ export class SpeechSynthesizer {
         const isGadget = ['Cell phone', 'Phone', 'Watch', 'Clock', 'Glasses', 'Specs', 'Earbuds', 'Earphones', 'Keys', 'Mouse'].includes(name);
 
         if (isGadget && dist < 0.8) {
-            return `${name} detected, ${dStr} meters away.`;
+            return `${name}, ${dStr}.`;
         }
 
         if (tier === 1) {
-            if (lateral === 'ahead') return `Warning. ${name}, ${dStr} meters directly ahead.`;
-            return `Warning. ${name}, ${dStr} meters on your ${lateral}.`;
+            if (lateral === 'ahead') return `Hazard: ${name}, ${dStr} ahead.`;
+            return `Hazard: ${name}, ${lateral}.`; // Very short
         }
         if (tier === 2) {
-            if (lateral === 'ahead') return `${name} ahead, ${dStr} meters away.`;
-            return `${name} on your ${lateral}, ${dStr} meters away.`;
+            if (lateral === 'ahead') return `${name}, ${dStr} ahead.`;
+            return `${name}, ${lateral}, ${dStr}.`;
         }
         // Tier 3
-        if (lateral === 'ahead') return `${name}, ${dStr} meters ahead.`;
-        return `${name} on your ${lateral}, ${dStr} meters.`;
+        if (lateral === 'ahead') return `${name}, ${dStr} ahead.`;
+        return `${name}, ${lateral}, ${dStr}.`;
     }
 
     /* ═══════════════════ INTERNAL ═══════════════════ */

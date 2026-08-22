@@ -50,7 +50,18 @@ export class VoiceCommand {
       }
       if (target) {
         this.onTargetSet({ type: 'TARGET', payload: target });
+      } else {
+        this.onTargetSet(null);
       }
+    };
+
+    this.recognition.onerror = (e) => {
+      console.warn("Speech recognition error:", e);
+      this.onTargetSet(null);
+    };
+    
+    this.recognition.onend = () => {
+      // Just in case it ends without result or error
     };
   }
 

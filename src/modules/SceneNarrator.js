@@ -21,7 +21,7 @@ export class SceneNarrator {
         this.lastInspect = 0;
 
         this.HF_URL = 'https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base';
-        this.GEMINI_PROMPT = 'You are an assistive vision guide. Detect and state any visible personal items, gadgets (phone, watch, glasses, earbuds), text, or path obstacles in 1 concise sentence (<10 words).';
+        this.GEMINI_PROMPT = 'Describe this scene for a blind user in under 15 words. Focus strictly on actionable spatial information and obstacles. Use calm, spoken language. No markdown.';
     }
 
     /**
@@ -159,25 +159,50 @@ export class SceneNarrator {
 
     /* ──── Mode 2: Gemini 2.5 Flash ──── */
 
-    /** @private Multimodal scene captioning via Gemini. */
+    /** @private Multimodal scene captioning via Gemini with timeout & fallback. */
     async _gemini(video) {
         const c   = this._snap(video);
         const b64 = c.toDataURL('image/jpeg', 0.8).split(',')[1];
 
         const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`;
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{ parts: [
-                    { text: this.GEMINI_PROMPT },
-                    { inline_data: { mime_type: 'image/jpeg', data: b64 } }
-                ]}],
-                generationConfig: { temperature: 0.2, maxOutputTokens: 60 }
-            })
-        });
-        if (!res.ok) { console.warn('Gemini status', res.status); return null; }
-        const d = await res.json();
-        return d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+        
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000); // 4s timeout
+            
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                signal: controller.signal,
+                body: JSON.stringify({
+                    contents: [{ parts: [
+                        { text: this.GEMINI_PROMPT },
+                        { inline_data: { mime_type: 'image/jpeg', data: b64 } }
+                    ]}],
+                    generationConfig: { temperature: 0.2, maxOutputTokens: 60 }
+                })
+            });
+            
+            clearTimeout(timeoutId);
+            
+            if (!res.ok) throw new Error(`Gemini status ${res.status}`);
+            const d = await res.json();
+            return d.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || this._localFallback();
+        } catch (e) {
+            console.warn('Gemini request failed/timed out, using local fallback:', e.message);
+            return this._localFallback();
+        }
+    }
+
+    /** @private Generate a local summary based on EdgeDetector tracking. */
+    _localFallback() {
+        if (!this.urgency || this.urgency.tracks.size === 0) return null;
+        const items = [];
+        for (const [id, tr] of this.urgency.tracks) {
+            if (tr.tier !== 0) items.push(tr.cls);
+        }
+        if (items.length === 0) return null;
+        const unique = [...new Set(items)];
+        return `Local fallback: Detected ${unique.join(' and ')}.`;
     }
 }
