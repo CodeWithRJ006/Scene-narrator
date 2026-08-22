@@ -256,3 +256,48 @@
   box-shadow: 0 4px 15px rgba(56, 189, 248, 0.4);
   z-index: 100;
 }
+
+/* =========================================
+   ACCESSIBILITY & OS PREFERENCES
+   ========================================= */
+
+/* Visually hide element but keep available to Screen Readers */
+.sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); border: 0;
+}
+
+/* Keyboard Focus Rings */
+*:focus-visible {
+    outline: 3px solid var(--color-safe);
+    outline-offset: 2px;
+}
+
+/* Respect OS Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+    * {
+        animation: none !important;
+        transition: none !important;
+    }
+    #controls-drawer {
+        transition: none !important;
+    }
+}
+
+/* Respect OS High Contrast */
+@media (prefers-contrast: more) {
+    :root {
+        --color-safe: #00ff00;
+        --color-hazard: #ff0000;
+        --color-caution: #ffff00;
+    }
+    .ctrl-input, .btn-test, .fab-mic {
+        border: 2px solid #ffffff;
+        background: #000000;
+        color: #ffffff;
+    }
+    #controls-drawer {
+        background: #000000;
+        border-top: 2px solid #ffffff;
+    }
+}

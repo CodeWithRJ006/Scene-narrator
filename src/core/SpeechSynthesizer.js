@@ -70,13 +70,15 @@ export class SpeechSynthesizer {
         this.synth.cancel();
         this.queue2   = null;
         this.speaking = false;
+
+        if (navigator.vibrate) navigator.vibrate([200, 100, 200, 100, 200]);
         
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.rate = 0.95;
         utterance.pitch = 1.1;
         if (this.voice) utterance.voice = this.voice;
         
-        utterance.onstart = () => { this.speaking = true; this._hud('Speaking'); this._sub(text); };
+        utterance.onstart = () => { this.speaking = true; this._hud('Speaking'); this._sub(text, true); };
         utterance.onend   = () => { this.speaking = false; this.lastEnd = performance.now(); this._hud('Idle'); this._drain(); };
         utterance.onerror = () => { this.speaking = false; this.lastEnd = performance.now(); this._hud('Idle'); this._drain(); };
         
@@ -94,6 +96,7 @@ export class SpeechSynthesizer {
             this.queue2 = text;
             return;
         }
+        if (navigator.vibrate) navigator.vibrate([150, 100, 150]);
         this._speak(text);
         this._markRecent(text);
     }
@@ -105,6 +108,7 @@ export class SpeechSynthesizer {
     speakT3(text) {
         const idle = !this.speaking && !this.synth.speaking && this.queue2 === null;
         if (idle && performance.now() - this.lastEnd >= this.T3_SILENCE) {
+            if (navigator.vibrate) navigator.vibrate([50]);
             this._speak(text);
         }
     }
@@ -204,8 +208,16 @@ export class SpeechSynthesizer {
         if (el) el.textContent = s;
     }
 
-    /** @private Flash spoken text in live subtitles. */
-    _sub(text) {
-        // Not used by the main subtitle manager directly, but a hook if needed.
+    /** @private Flash spoken text in live subtitles and ARIA live regions. */
+    _sub(text, isUrgent = false) {
+        // Find ARIA regions
+        const assertive = document.getElementById('aria-live-assertive');
+        const polite = document.getElementById('aria-live-polite');
+        
+        if (isUrgent && assertive) {
+            assertive.textContent = text;
+        } else if (!isUrgent && polite) {
+            polite.textContent = text;
+        }
     }
 }

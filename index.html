@@ -73,39 +73,43 @@
         </div>
 
         <!-- Live Subtitles HUD -->
-        <div id="subtitle-strip" class="subtitles-hud glass">
+        <div id="subtitle-strip" class="subtitles-hud glass" aria-hidden="true">
             <span class="sub-text">System ready. Awaiting scene data…</span>
         </div>
 
+        <!-- Hidden ARIA Live Regions for Screen Readers -->
+        <div id="aria-live-assertive" class="sr-only" aria-live="assertive" aria-atomic="true"></div>
+        <div id="aria-live-polite" class="sr-only" aria-live="polite" aria-atomic="true"></div>
+
         <!-- Floating Action Button for Voice Commands -->
-        <button id="voice-btn" class="fab-mic">🎤 Find Target</button>
+        <button id="voice-btn" class="fab-mic" aria-label="Activate Voice Command">🎤 Find Target</button>
 
         <!-- Bottom Controls Drawer -->
-        <div id="controls-drawer">
-            <div class="drawer-handle" id="drawer-handle"><span></span></div>
-            <div class="drawer-body">
-                <h2 class="drawer-title">System Controls</h2>
+        <div id="controls-drawer" role="region" aria-label="System Controls">
+            <button class="drawer-handle" id="drawer-handle" aria-expanded="false" aria-controls="controls-drawer-body" aria-label="Toggle System Controls"><span></span></button>
+            <div id="controls-drawer-body" class="drawer-body" aria-hidden="true">
+                <h2 class="drawer-title" tabindex="-1">System Controls</h2>
 
-                <label class="ctrl-label">Camera Source</label>
-                <select id="camera-select" class="ctrl-input" style="padding: 10px 14px;">
+                <label for="camera-select" class="ctrl-label">Camera Source</label>
+                <select id="camera-select" class="ctrl-input" style="padding: 10px 14px;" aria-label="Camera Source">
                     <option value="">Default (Rear/Webcam)</option>
                 </select>
 
-                <label class="ctrl-label">Proximity Threshold</label>
+                <label for="proximity" class="ctrl-label">Proximity Threshold</label>
                 <div class="slider-row">
-                    <input type="range" id="proximity" min="1" max="10" value="5" class="slider">
-                    <span class="slider-tag" id="prox-tag">5</span>
+                    <input type="range" id="proximity" min="1" max="10" value="5" class="slider" aria-valuemin="1" aria-valuemax="10" aria-valuenow="5" aria-label="Proximity Threshold in meters">
+                    <span class="slider-tag" id="prox-tag" aria-hidden="true">5</span>
                 </div>
 
-                <label class="ctrl-label">Gemini API Key <span class="optional">(optional – free mode active by default)</span></label>
-                <input type="password" id="api-key" placeholder="Paste key to enable Gemini 2.5 Flash" class="ctrl-input">
+                <label for="api-key" class="ctrl-label">Gemini API Key <span class="optional">(optional – free mode active by default)</span></label>
+                <input type="password" id="api-key" placeholder="Paste key to enable Gemini 2.5 Flash" class="ctrl-input" aria-label="Gemini API Key">
 
                 <div class="test-row" style="margin-bottom: 10px;">
-                    <button class="btn-test" id="btn-find-object" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);">🎤 Find Target</button>
+                    <button class="btn-test" id="btn-find-object" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8; border: 1px solid rgba(56, 189, 248, 0.3);" aria-label="Test Voice Target Lock">🎤 Find Target</button>
                 </div>
                 <div class="test-row">
-                    <button class="btn-test btn-test--red" id="test-t1">Test Tier-1 Alert</button>
-                    <button class="btn-test btn-test--yellow" id="test-t2">Test Step-Down Hazard</button>
+                    <button class="btn-test btn-test--red" id="test-t1" aria-label="Test Tier 1 Hazard Alert">Test Tier-1 Alert</button>
+                    <button class="btn-test btn-test--yellow" id="test-t2" aria-label="Test Tier 2 Caution Alert">Test Step-Down Hazard</button>
                 </div>
             </div>
         </div>

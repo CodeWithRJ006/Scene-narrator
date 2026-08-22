@@ -148,23 +148,25 @@ export class SpatialReasoning {
 
             // ── Center Cone ──
             const inCenter = cx > this.W * 0.30 && cx < this.W * 0.70;
+            const hDist = this.hazardDistance || 1.8;
+            const cDist = hDist * 1.94; // roughly 3.5m when hDist is 1.8
 
             // ── Tier Classification ──
             let target = TIER.BG;
             
             const isGadget = ['cell phone', 'phone', 'watch', 'clock', 'glasses', 'specs', 'earbuds', 'earphones', 'keys', 'mouse'].includes(pred.className);
 
-            if (inCenter && (distance < 1.8 || isApproaching)) {
-                // Tier 1 (Immediate Hazard): In center path AND distance < 1.8m OR approaching fast
+            if (inCenter && (distance < hDist || isApproaching)) {
+                // Tier 1 (Immediate Hazard): In center path AND distance < hDist OR approaching fast
                 target = TIER.HAZARD;
             } else if (isGadget && distance < 0.8) {
                 // Tier 1 (Priority Gadget): Gadget held closely to camera triggers instant vocal feedback
                 target = TIER.HAZARD;
-            } else if ((inCenter && distance >= 1.8 && distance <= 3.5) || (!inCenter && distance < 3.5)) {
-                // Tier 2 (Caution): In center path 1.8m–3.5m or flanking lateral paths (< 3.5m)
+            } else if ((inCenter && distance >= hDist && distance <= cDist) || (!inCenter && distance < cDist)) {
+                // Tier 2 (Caution): In center path hDist–cDist or flanking lateral paths (< cDist)
                 target = TIER.CAUTION;
             } else {
-                // Tier 3 (Context): >3.5m or static peripheral objects
+                // Tier 3 (Context): >cDist or static peripheral objects
                 target = TIER.BG;
             }
 

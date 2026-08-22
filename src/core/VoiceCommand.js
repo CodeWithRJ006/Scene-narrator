@@ -13,6 +13,32 @@ export class VoiceCommand {
     this.recognition.onresult = (event) => {
       const command = event.results[0][0].transcript.toLowerCase();
       console.log("Heard:", command);
+
+      // Check proximity command
+      let match = command.match(/set proximity to (\d+)/);
+      if (match) {
+        return this.onTargetSet({ type: 'PROXIMITY', payload: parseInt(match[1], 10) });
+      }
+
+      // Check camera switch
+      if (command.includes("switch camera") || command.includes("next camera")) {
+        return this.onTargetSet({ type: 'CAMERA', payload: 'next' });
+      }
+
+      // Check cloud narration
+      if (command.includes("enable cloud narration") || command.includes("start cloud narration")) {
+        return this.onTargetSet({ type: 'CLOUD', payload: true });
+      }
+      if (command.includes("disable cloud narration") || command.includes("stop cloud narration")) {
+        return this.onTargetSet({ type: 'CLOUD', payload: false });
+      }
+
+      // Check API key clear
+      if (command.includes("clear api key") || command.includes("remove api key")) {
+        return this.onTargetSet({ type: 'CLEAR_KEY' });
+      }
+
+      // Fallback: Target Search
       const triggers = ["find", "where is", "locate", "navigate to"];
       let target = null;
       for (const trigger of triggers) {
@@ -22,7 +48,9 @@ export class VoiceCommand {
           break;
         }
       }
-      if (target) this.onTargetSet(target);
+      if (target) {
+        this.onTargetSet({ type: 'TARGET', payload: target });
+      }
     };
   }
 

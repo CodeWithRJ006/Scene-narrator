@@ -67,17 +67,24 @@ export class UIController {
             if (!this._drawerOpen) {
                 this._drawerOpen = true;
                 this.$drawer.classList.add('expanded');
+                if (this.$handle) this.$handle.setAttribute('aria-expanded', 'true');
+                const body = document.getElementById('controls-drawer-body');
+                if (body) body.setAttribute('aria-hidden', 'false');
             } else if (e.target.closest('#drawer-handle')) {
                 this._drawerOpen = false;
                 this.$drawer.classList.remove('expanded');
+                if (this.$handle) this.$handle.setAttribute('aria-expanded', 'false');
+                const body = document.getElementById('controls-drawer-body');
+                if (body) body.setAttribute('aria-hidden', 'true');
             }
         });
     }
 
-    /** @private */
     _initSlider() {
         this.$prox.addEventListener('input', () => {
-            this.$proxTag.textContent = this.$prox.value;
+            const val = this.$prox.value;
+            this.$proxTag.textContent = val;
+            this.$prox.setAttribute('aria-valuenow', val);
         });
     }
 

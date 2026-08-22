@@ -25,10 +25,52 @@ export class App {
         this.urgency  = null;
         this.narrator = null;
         this.navEngine = new NavigationEngine(this.speech);
-        this.voice    = new VoiceCommand((target) => {
-            if (target) {
-                this.navEngine.setTarget(target);
-                this.ui.updateTargetRadar(target);
+        this.voice    = new VoiceCommand(async (intent) => {
+            if (!intent) return;
+            if (typeof intent === 'string') intent = { type: 'TARGET', payload: intent };
+            
+            const srLive = document.getElementById('aria-live-polite');
+
+            if (intent.type === 'TARGET') {
+                this.navEngine.setTarget(intent.payload);
+                this.ui.updateTargetRadar(intent.payload);
+            } else if (intent.type === 'PROXIMITY') {
+                let val = Math.max(1, Math.min(10, intent.payload));
+                const proxSlider = document.getElementById('proximity');
+                const proxTag = document.getElementById('prox-tag');
+                if (proxSlider) { proxSlider.value = val; proxSlider.setAttribute('aria-valuenow', val); }
+                if (proxTag) proxTag.textContent = val;
+                
+                this.urgency.hazardDistance = val * 0.35; // Map 1-10 to 0.35m - 3.5m
+                this.speech.speakT1(`Proximity threshold set to ${val}`);
+                if (srLive) srLive.textContent = `Proximity threshold set to ${val}`;
+            } else if (intent.type === 'CAMERA') {
+                const devs = await this.camera.getAvailableCameras();
+                if (devs.length > 1) {
+                    const currentIdx = devs.findIndex(d => d.deviceId === this.camera.selectedDeviceId);
+                    const nextIdx = (currentIdx + 1) % devs.length;
+                    await this.camera.startCamera(devs[nextIdx].deviceId);
+                    this.speech.speakT1(`Camera switched`);
+                    if (srLive) srLive.textContent = `Camera switched`;
+                } else {
+                    this.speech.speakT1(`No other cameras found`);
+                }
+            } else if (intent.type === 'CLOUD') {
+                if (intent.payload) {
+                    this.speech.speakT1(`Cloud narration enabled`);
+                    if (srLive) srLive.textContent = `Cloud narration enabled`;
+                } else {
+                    this.narrator.stop();
+                    this.speech.speakT1(`Cloud narration disabled`);
+                    if (srLive) srLive.textContent = `Cloud narration disabled`;
+                }
+            } else if (intent.type === 'CLEAR_KEY') {
+                localStorage.removeItem('geminiApiKey');
+                const apiKeyEl = document.getElementById('api-key');
+                if (apiKeyEl) apiKeyEl.value = '';
+                this.narrator.setKey('');
+                this.speech.speakT1(`API key cleared`);
+                if (srLive) srLive.textContent = `Gemini API key cleared`;
             }
         });
 
@@ -121,6 +163,14 @@ export class App {
 
             // Transition to active HUD
             this.ui.transitionToApp();
+
+            // Audio Onboarding (Accessibility)
+            if (!localStorage.getItem('onboarded_v2')) {
+                setTimeout(() => {
+                    this.speech.speakT1("Welcome to Insight Lens Pro. Voice commands are active. You can say: Find an object, Set proximity to 5, Switch camera, or Enable cloud narration.");
+                    localStorage.setItem('onboarded_v2', 'true');
+                }, 3500); // Give the system online message time to finish
+            }
 
             // Start scene narration & core loop
             this.narrator.start(video);
