@@ -20,7 +20,7 @@ export class SceneNarrator {
         this.timer   = null;
 
         this.HF_URL = 'https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base';
-        this.GEMINI_PROMPT = 'Assistive narration for a walking blind person. State key obstacles, text, or room names in 1 short sentence (<10 words).';
+        this.GEMINI_PROMPT = 'You are an assistive vision guide. Detect and state any visible personal items, gadgets (phone, watch, glasses, earbuds), text, or path obstacles in 1 concise sentence (<10 words).';
     }
 
     /**

@@ -11,18 +11,17 @@ export const TIER = { HAZARD: 1, CAUTION: 2, BG: 3 };
 /** Height heuristics for pinhole distance calculation */
 const REAL_HEIGHTS = {
     person: 1.7,
-    bicycle: 1.1,
-    car: 1.5, vehicle: 1.5, truck: 2.4, bus: 3.0, motorcycle: 1.2,
-    chair: 0.85, bench: 0.85,
+    chair: 0.85, bench: 0.85, couch: 0.85,
+    car: 1.5, bicycle: 1.5, truck: 2.4, bus: 3.0, motorcycle: 1.2,
+    laptop: 0.35, backpack: 0.35, handbag: 0.35, suitcase: 0.7,
+    'cell phone': 0.15, phone: 0.15, watch: 0.15, clock: 0.15,
+    glasses: 0.15, specs: 0.15, earbuds: 0.15, earphones: 0.15,
+    bottle: 0.25, cup: 0.15, book: 0.25, scissors: 0.15,
+    keyboard: 0.15, mouse: 0.05, keys: 0.08,
     dog: 0.5, cat: 0.3,
-    bottle: 0.25, cup: 0.25,
-    suitcase: 0.7, backpack: 0.55, handbag: 0.35,
     'traffic light': 0.6, 'stop sign': 0.75, 'fire hydrant': 0.6,
     'potted plant': 0.5,
-    'cell phone': 0.15, laptop: 0.25, watch: 0.05, 
-    'glasses': 0.05, 'specs': 0.05, 
-    'earphones': 0.02, 'earbuds': 0.02, keys: 0.08,
-    default: 1.0
+    default: 0.5
 };
 
 export class SpatialReasoning {
@@ -146,8 +145,14 @@ export class SpatialReasoning {
 
             // ── Tier Classification ──
             let target = TIER.BG;
+            
+            const isGadget = ['cell phone', 'phone', 'watch', 'clock', 'glasses', 'specs', 'earbuds', 'earphones', 'keys'].includes(pred.className);
+
             if (inCenter && (distance < 1.8 || isApproaching)) {
                 // Tier 1 (Immediate Hazard): In center path AND distance < 1.8m OR approaching fast
+                target = TIER.HAZARD;
+            } else if (isGadget && distance < 0.8) {
+                // Tier 1 (Priority Gadget): Gadget held closely to camera triggers instant vocal feedback
                 target = TIER.HAZARD;
             } else if ((inCenter && distance >= 1.8 && distance <= 3.5) || (!inCenter && distance < 3.5)) {
                 // Tier 2 (Caution): In center path 1.8m–3.5m or flanking lateral paths (< 3.5m)

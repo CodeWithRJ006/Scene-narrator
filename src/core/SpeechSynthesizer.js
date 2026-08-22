@@ -105,6 +105,12 @@ export class SpeechSynthesizer {
         const name = cls.charAt(0).toUpperCase() + cls.slice(1);
         const d = dist.toFixed(1);
 
+        const isGadget = ['Cell phone', 'Phone', 'Watch', 'Clock', 'Glasses', 'Specs', 'Earbuds', 'Earphones', 'Keys'].includes(name);
+
+        if (isGadget && dist < 0.8) {
+            return `${name} detected, ${d} meters away.`;
+        }
+
         if (tier === 1) {
             if (lateral === 'ahead') return `Warning. ${name} ${d} meters directly ahead.`;
             return `Warning. ${name} ${d} meters on your ${lateral}.`;
