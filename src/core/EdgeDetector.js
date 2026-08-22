@@ -81,10 +81,24 @@ export class EdgeDetector {
         }
 
         if (this.model && !this.useFallback) {
-            const raw = await this.model.detect(video);
-            return raw
-                .filter(d => d.score >= 0.50) // Confidence threshold >= 0.50
-                .map(d => ({ bbox: d.bbox, className: d.class, score: d.score })); // Normalized bounding boxes
+            let raw = await this.model.detect(video);
+            raw = raw.filter(d => d.score >= 0.60); // Confidence threshold >= 0.60
+
+            // Custom NMS to prevent double detections (IoU > 0.45)
+            raw = raw.sort((a, b) => b.score - a.score);
+            const nms = [];
+            for (const d of raw) {
+                let overlap = false;
+                for (const keep of nms) {
+                    if (this._iou(d.bbox, keep.bbox) > 0.45) {
+                        overlap = true;
+                        break;
+                    }
+                }
+                if (!overlap) nms.push(d);
+            }
+
+            return nms.map(d => ({ bbox: d.bbox, className: d.class, score: d.score })); // Normalized bounding boxes
         }
         return this._motionDetect(video);
     }

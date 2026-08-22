@@ -18,6 +18,7 @@ export class SceneNarrator {
         this.apiKey  = '';
         this.busy    = false;
         this.timer   = null;
+        this.lastInspect = 0;
 
         this.HF_URL = 'https://api-inference.huggingface.co/models/Salesforce/blip-image-captioning-base';
         this.GEMINI_PROMPT = 'You are an assistive vision guide. Detect and state any visible personal items, gadgets (phone, watch, glasses, earbuds), text, or path obstacles in 1 concise sentence (<10 words).';
@@ -48,6 +49,55 @@ export class SceneNarrator {
     stop() {
         clearInterval(this.timer);
         this.timer = null;
+    }
+
+    /**
+     * Inspect hyper-specific items held extremely close to the camera.
+     * @param {HTMLVideoElement} video
+     * @returns {Promise<string|null>} The specific item name.
+     */
+    async inspectItem(video) {
+        const now = performance.now();
+        if (now - this.lastInspect < 5000) return null; // 5s debounce for inspection
+        this.lastInspect = now;
+
+        const c = this._snap(video);
+        const b64 = c.toDataURL('image/jpeg', 0.8).split(',')[1];
+        const blob = await new Promise(r => c.toBlob(r, 'image/jpeg', 0.8));
+        
+        const inspectPrompt = "The user is holding an item close to the camera. Identify the exact item (e.g., 'white wireless earbuds', 'black gaming mouse', 'car keys'). Reply with ONLY the item name, nothing else.";
+
+        try {
+            if (this.apiKey) {
+                const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${this.apiKey}`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [
+                                { text: inspectPrompt },
+                                { inline_data: { mime_type: "image/jpeg", data: b64 } }
+                            ]
+                        }]
+                    })
+                });
+                const data = await res.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text?.trim() || null;
+            } else {
+                // HF Fallback
+                const res = await fetch(this.HF_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/octet-stream' },
+                    body: blob
+                });
+                if (!res.ok) return null;
+                const data = await res.json();
+                return data[0]?.generated_text?.trim() || null;
+            }
+        } catch (e) {
+            console.error('Inspect error:', e);
+            return null;
+        }
     }
 
     /* ──── Circuit Breakers ──── */

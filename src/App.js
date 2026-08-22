@@ -117,8 +117,32 @@ export class App {
                 this.detector.detect(video).then(raw => {
                     if (raw) {
                         preds = this.urgency.process(raw);
+
+                        let triggeredInspect = false;
+                        for (const p of preds) {
+                            const [x, y, w, h] = p.bbox;
+                            const cx = x + w / 2;
+                            const isExactCenter = cx > video.videoWidth * 0.40 && cx < video.videoWidth * 0.60;
+                            
+                            if (p.distance < 0.4 && isExactCenter && !this._isInspecting) {
+                                this._isInspecting = true;
+                                triggeredInspect = true;
+                                this.narrator.inspectItem(video).then(item => {
+                                    this._isInspecting = false;
+                                    if (item) {
+                                        const cleanItem = item.replace(/[\r\n.]/g, '');
+                                        this.speech.speakT1(`Holding: ${cleanItem}`);
+                                        this.subtitles.showSpoken(`Holding: ${cleanItem}`);
+                                    }
+                                });
+                                break;
+                            }
+                        }
+
                         this._updateHUD(preds);
-                        this._dispatchSpeech(preds, spoken);
+                        if (!triggeredInspect) {
+                            this._dispatchSpeech(preds, spoken);
+                        }
                         this.subtitles.update(preds);
                     }
                     inferring = false;

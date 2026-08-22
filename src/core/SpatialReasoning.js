@@ -2,26 +2,23 @@
  * SpatialReasoning.js – Spatial hazard classification with pinhole optical distance calculation.
  *
  * Distance Model:
- *   Distance (m) = (RealObjectHeight_m * FocalLength_px) / BBoxHeight_px
- *   FocalLength_px ≈ frameHeight
+ *   Distance (m) = (RealObjectHeight_m * FocalLength_px) / max(BBoxWidth, BBoxHeight)
+ *   FocalLength_px dynamically adjusted for Desktop vs Mobile FOV.
  */
 
 export const TIER = { HAZARD: 1, CAUTION: 2, BG: 3 };
 
-/** Height heuristics for pinhole distance calculation */
+/** Comprehensive Size Dictionary (Real-world heights in meters) */
 const REAL_HEIGHTS = {
-    person: 1.7,
-    chair: 0.85, bench: 0.85, couch: 0.85,
-    car: 1.5, bicycle: 1.5, truck: 2.4, bus: 3.0, motorcycle: 1.2,
-    laptop: 0.35, backpack: 0.35, handbag: 0.35, suitcase: 0.7,
-    'cell phone': 0.15, phone: 0.15, watch: 0.15, clock: 0.15,
-    glasses: 0.15, specs: 0.15, earbuds: 0.15, earphones: 0.15,
-    bottle: 0.25, cup: 0.15, book: 0.25, scissors: 0.15,
-    keyboard: 0.15, mouse: 0.05, keys: 0.08,
-    dog: 0.5, cat: 0.3,
-    'traffic light': 0.6, 'stop sign': 0.75, 'fire hydrant': 0.6,
-    'potted plant': 0.5,
-    default: 0.5
+    person: 1.70, car: 1.50, motorcycle: 1.00, airplane: 10.0, bus: 3.00, train: 3.00, truck: 2.50, boat: 2.00,
+    'traffic light': 0.80, 'fire hydrant': 0.60, 'stop sign': 0.80, 'parking meter': 1.20, bench: 0.90,
+    bird: 0.20, cat: 0.30, dog: 0.50, horse: 1.50, sheep: 1.00, cow: 1.40, elephant: 3.00, bear: 1.00, zebra: 1.40, giraffe: 4.00,
+    backpack: 0.40, umbrella: 1.00, handbag: 0.30, tie: 0.40, suitcase: 0.60, frisbee: 0.25, skis: 1.50, snowboard: 1.50, 'sports ball': 0.22, kite: 1.00, 'baseball bat': 1.00, 'baseball glove': 0.30, skateboard: 0.80, surfboard: 2.00, 'tennis racket': 0.70,
+    bottle: 0.25, 'wine glass': 0.20, cup: 0.15, fork: 0.20, knife: 0.20, spoon: 0.15, bowl: 0.15,
+    banana: 0.20, apple: 0.08, sandwich: 0.15, orange: 0.08, broccoli: 0.15, carrot: 0.15, 'hot dog': 0.15, pizza: 0.30, donut: 0.10, cake: 0.20,
+    chair: 0.85, couch: 0.90, 'potted plant': 0.50, bed: 0.60, 'dining table': 0.80, toilet: 0.40, tv: 0.60, laptop: 0.30, mouse: 0.10, remote: 0.20, keyboard: 0.15, 'cell phone': 0.15, phone: 0.15, microwave: 0.30, oven: 0.80, toaster: 0.20, sink: 0.20, refrigerator: 1.80, book: 0.20, clock: 0.30, vase: 0.30, scissors: 0.15, 'teddy bear': 0.40, 'hair drier': 0.20, toothbrush: 0.15,
+    watch: 0.15, glasses: 0.15, specs: 0.15, earbuds: 0.15, earphones: 0.15, keys: 0.08,
+    fallback_default: 0.40, default: 0.40
 };
 
 export class SpatialReasoning {
@@ -32,21 +29,27 @@ export class SpatialReasoning {
     constructor(w, h) {
         this.W = w;
         this.H = h;
-        this.focalPx  = h;
+        this._updateFocalLength();
         this.tracks   = new Map();
         this.nextId   = 0;
         this.COOLDOWN = 500; // hysteresis cooldown ms
     }
 
     /**
-     * Update frame dimensions after resize.
+     * Update frame dimensions and dynamic focal length after resize.
      * @param {number} w
      * @param {number} h
      */
     resize(w, h) {
         this.W = w;
         this.H = h;
-        this.focalPx = h;
+        this._updateFocalLength();
+    }
+
+    /** @private Update focal length based on Desktop vs Mobile FOV. */
+    _updateFocalLength() {
+        const isDesktop = window.innerWidth > window.innerHeight;
+        this.focalPx = isDesktop ? 600 : 800;
     }
 
     /* ──────────── Distance ──────────── */
@@ -54,15 +57,18 @@ export class SpatialReasoning {
     /**
      * Pinhole Optical Distance Calculation
      * @param {string} className – Object class name.
+     * @param {number} bboxWidth – Bounding box width in pixels.
      * @param {number} bboxHeight – Bounding box height in pixels.
      * @returns {number} Distance in meters, clamped 0.5–8.0, 1-decimal precision.
      */
-    estimateDistance(className, bboxHeight) {
-        const realH = REAL_HEIGHTS[className] || REAL_HEIGHTS.default;
-        if (bboxHeight < 1) return 8.0;
-        const d = (realH * this.focalPx) / bboxHeight;
-        // Clamp output between 0.5m and 8.0m with 1-decimal precision
-        return Math.round(Math.max(0.5, Math.min(8.0, d)) * 10) / 10;
+    estimateDistance(className, bboxWidth, bboxHeight) {
+        const realH = REAL_HEIGHTS[className] || REAL_HEIGHTS.fallback_default;
+        const maxDim = Math.max(bboxWidth, bboxHeight);
+        if (maxDim < 1) return 8.0;
+        
+        const d = (realH * this.focalPx) / maxDim;
+        // Clamp output between 0.2m (to allow close items) and 8.0m with 1-decimal precision
+        return Math.round(Math.max(0.2, Math.min(8.0, d)) * 10) / 10;
     }
 
     /* ──────────── Spatial / Lateral Position ──────────── */
@@ -115,8 +121,8 @@ export class SpatialReasoning {
             const cx   = x + w / 2;
             const area = w * h;
 
-            // Distance estimation
-            const distance = this.estimateDistance(pred.className, h);
+            // Distance estimation (using max dim)
+            const distance = this.estimateDistance(pred.className, w, h);
             pred.distance = distance;
 
             // Lateral tag
@@ -146,7 +152,7 @@ export class SpatialReasoning {
             // ── Tier Classification ──
             let target = TIER.BG;
             
-            const isGadget = ['cell phone', 'phone', 'watch', 'clock', 'glasses', 'specs', 'earbuds', 'earphones', 'keys'].includes(pred.className);
+            const isGadget = ['cell phone', 'phone', 'watch', 'clock', 'glasses', 'specs', 'earbuds', 'earphones', 'keys', 'mouse'].includes(pred.className);
 
             if (inCenter && (distance < 1.8 || isApproaching)) {
                 // Tier 1 (Immediate Hazard): In center path AND distance < 1.8m OR approaching fast
