@@ -21,7 +21,7 @@ export class UIController {
         this.$launch = document.getElementById('launch-btn');
 
         // Drawer
-        this.$drawer  = document.getElementById('drawer');
+        this.$drawer  = document.getElementById('controls-drawer');
         this.$handle  = document.getElementById('drawer-handle');
         this.$key     = document.getElementById('api-key');
         this.$prox    = document.getElementById('proximity');
@@ -40,7 +40,6 @@ export class UIController {
 
         // Drawer state
         this._drawerOpen = false;
-        this.$drawer.classList.add('collapsed');
 
         this._initDrawer();
         this._initSlider();
@@ -64,9 +63,14 @@ export class UIController {
 
     /** @private */
     _initDrawer() {
-        this.$handle.addEventListener('click', () => {
-            this._drawerOpen = !this._drawerOpen;
-            this.$drawer.classList.toggle('collapsed', !this._drawerOpen);
+        this.$drawer.addEventListener('click', (e) => {
+            if (!this._drawerOpen) {
+                this._drawerOpen = true;
+                this.$drawer.classList.add('expanded');
+            } else if (e.target.closest('#drawer-handle')) {
+                this._drawerOpen = false;
+                this.$drawer.classList.remove('expanded');
+            }
         });
     }
 
