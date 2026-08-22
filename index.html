@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>InsightLens Pro</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+</head>
+<body>
+
+    <!-- ======================== -->
+    <!-- STAGE 1: LANDING PAGE    -->
+    <!-- ======================== -->
+    <div id="landing-page">
+        <div class="landing-glow landing-glow--blue"></div>
+        <div class="landing-glow landing-glow--purple"></div>
+
+        <div class="landing-card glass">
+            <div class="badge badge--live"><span class="badge-dot"></span> LIVE SCENE REASONING ENGINE</div>
+
+            <h1 class="hero-title">InsightLens Pro</h1>
+            <p class="hero-subtitle">Autonomous Real-Time Spatial Hazard &amp; Scene Narration for the Visually Impaired.</p>
+
+            <div class="feature-row">
+                <span class="feature-badge">Sub-100ms Barge-In</span>
+                <span class="feature-badge">Geometric Distance</span>
+                <span class="feature-badge">Edge YOLO</span>
+            </div>
+
+            <button id="launch-btn" class="btn-launch">
+                <svg class="btn-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polygon points="10,8 16,12 10,16" fill="currentColor" stroke="none"/></svg>
+                LAUNCH SYSTEM &amp; CALIBRATE CAMERA
+            </button>
+            <p class="hero-footnote">Camera &amp; microphone permissions required. No data leaves your device unless you enable cloud narration.</p>
+        </div>
+    </div>
+
+    <!-- ======================== -->
+    <!-- STAGE 2: ACTIVE HUD      -->
+    <!-- ======================== -->
+    <div id="app-view" class="app-view hidden">
+        <video id="webcam" autoplay playsinline muted></video>
+        <canvas id="overlay"></canvas>
+
+        <!-- Top HUD Pill -->
+        <div class="hud-pill glass">
+            <div class="hud-cell">
+                <span class="hud-label">FPS</span>
+                <span class="hud-value" id="fps-counter">--</span>
+            </div>
+            <div class="hud-sep"></div>
+            <div class="hud-cell">
+                <div class="urgency-dot" id="urgency-dot"></div>
+                <span class="hud-label" id="urgency-label">Clear</span>
+            </div>
+            <div class="hud-sep"></div>
+            <div class="hud-cell">
+                <svg class="hud-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
+                <span class="hud-value" id="speech-status">Idle</span>
+            </div>
+        </div>
+
+        <!-- Live Subtitles HUD -->
+        <div id="subtitle-strip" class="subtitles-hud glass">
+            <span class="sub-text">System ready. Awaiting scene data…</span>
+        </div>
+
+        <!-- Bottom Controls Drawer -->
+        <div class="drawer glass" id="drawer">
+            <div class="drawer-handle" id="drawer-handle"><span></span></div>
+            <div class="drawer-body">
+                <h2 class="drawer-title">System Controls</h2>
+
+                <label class="ctrl-label">Proximity Threshold</label>
+                <div class="slider-row">
+                    <input type="range" id="proximity" min="1" max="10" value="5" class="slider">
+                    <span class="slider-tag" id="prox-tag">5</span>
+                </div>
+
+                <label class="ctrl-label">Gemini API Key <span class="optional">(optional – free mode active by default)</span></label>
+                <input type="password" id="api-key" placeholder="Paste key to enable Gemini 2.5 Flash" class="ctrl-input">
+
+                <div class="test-row">
+                    <button class="btn-test btn-test--red" id="test-t1">Test Tier-1 Alert</button>
+                    <button class="btn-test btn-test--yellow" id="test-t2">Test Step-Down Hazard</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="/src/main.js"></script>
+</body>
+</html>
