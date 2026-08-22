@@ -28,7 +28,7 @@ export class App {
         this.voice    = new VoiceCommand((target) => {
             if (target) {
                 this.navEngine.setTarget(target);
-                document.getElementById('target-radar')?.classList.remove('hidden');
+                this.ui.updateTargetRadar(target);
             }
         });
 
@@ -184,7 +184,7 @@ export class App {
 
             // ── 60 FPS render (LERP inside drawHUD) ──
             syncCanvasDimensions(video, this.detector.canvas);
-            this.detector.drawHUD(preds);
+            this.detector.drawHUD(preds, this.navEngine.activeTarget);
         };
 
         requestAnimationFrame(loop);

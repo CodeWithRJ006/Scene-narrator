@@ -63,8 +63,9 @@ export class EdgeDetector {
     /**
      * Draw AR overlay with LERP-smoothed bounding boxes, distance badges, and urgency glow.
      * @param {Array} predictions
+     * @param {string|null} activeTarget
      */
-    drawHUD(predictions) {
+    drawHUD(predictions, activeTarget = null) {
         if (!this.ctx) return;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         const LERP = 0.35;
@@ -106,8 +107,14 @@ export class EdgeDetector {
             const tier = obj.urgencyTier || 3;
             const dist = obj.distance;
 
+            let isTargetLock = false;
+            if (activeTarget && (obj.className.toLowerCase().includes(activeTarget) || activeTarget.includes(obj.className.toLowerCase()))) {
+                isTargetLock = true;
+            }
+
             let color;
-            if      (dist !== undefined && dist < 1.8) color = '#ef4444';
+            if (isTargetLock)                          color = '#ffffff';
+            else if (dist !== undefined && dist < 1.8) color = '#ef4444';
             else if (dist !== undefined && dist < 3.5) color = '#f59e0b';
             else if (dist !== undefined)               color = '#10b981';
             else if (tier === 1)                       color = '#ef4444';
@@ -118,9 +125,9 @@ export class EdgeDetector {
             this.ctx.globalAlpha = obj.alpha;
 
             this.ctx.shadowColor = color;
-            this.ctx.shadowBlur  = tier === 1 ? 24 : 12;
+            this.ctx.shadowBlur  = isTargetLock ? 24 : (tier === 1 ? 24 : 12);
             this.ctx.strokeStyle = color;
-            this.ctx.lineWidth   = tier === 1 ? 3 : 2;
+            this.ctx.lineWidth   = isTargetLock ? 4 : (tier === 1 ? 3 : 2);
             this.ctx.lineJoin    = 'round';
 
             const cl = Math.min(24, w / 4, h / 4);

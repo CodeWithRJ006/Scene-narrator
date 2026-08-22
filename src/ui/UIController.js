@@ -32,6 +32,7 @@ export class UIController {
         this.$dotLbl  = document.getElementById('urgency-label');
         this.$fps     = document.getElementById('fps-counter');
         this.$subText = document.getElementById('sub-text');
+        this.$radar   = document.getElementById('target-radar'); // Target Lock UI
 
         // Test buttons
         this.$testT1  = document.getElementById('test-t1');
@@ -43,6 +44,19 @@ export class UIController {
         this._initDrawer();
         this._initSlider();
         this._restoreApiKey();
+    }
+
+    /* ──────── HUD Target Lock ──────── */
+    updateTargetRadar(targetName) {
+        if (!this.$radar) return;
+        if (targetName) {
+            this.$radar.textContent = `[ TARGET LOCK: ${targetName.toUpperCase()} ]`;
+            this.$radar.classList.remove('hidden');
+            this.$radar.classList.add('radar-active');
+        } else {
+            this.$radar.classList.add('hidden');
+            this.$radar.classList.remove('radar-active');
+        }
     }
 
     /* ──────── Drawer ──────── */
