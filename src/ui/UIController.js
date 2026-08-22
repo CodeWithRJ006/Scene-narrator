@@ -152,3 +152,14 @@ export class UIController {
         this.$fps.textContent = Math.round(fps);
     }
 }
+
+export function syncCanvasDimensions(video, canvas) {
+  if (video.videoWidth > 0 && canvas.width !== video.videoWidth) {
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    // Ensure CSS forces it to cover the screen
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
+    canvas.style.objectFit = 'cover';
+  }
+}

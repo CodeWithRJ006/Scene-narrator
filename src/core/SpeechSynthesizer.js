@@ -18,6 +18,7 @@ export class SpeechSynthesizer {
         this.synth    = window.speechSynthesis;
         this.voice    = null;
         this.speaking = false;
+        this.isUnlocked = false;
         this.lastEnd  = 0;
         this.lastT1   = 0;
         this.queue2   = null;
@@ -37,12 +38,20 @@ export class SpeechSynthesizer {
      * Call inside a direct user click to unlock iOS/Android audio.
      */
     unlockAudio() {
-        const u = new SpeechSynthesisUtterance('');
-        u.volume = 0;
-        this.synth.speak(u);
-        this.synth.cancel();
-        this.lastEnd = performance.now();
-        this._hud('Unlocked');
+        if (this.isUnlocked) return;
+        // Force a silent utterance, followed immediately by a vocal confirmation
+        const prime = new SpeechSynthesisUtterance("");
+        this.synth.speak(prime);
+        
+        setTimeout(() => {
+            const confirm = new SpeechSynthesisUtterance("System Online. Vision active.");
+            confirm.rate = 1.0;
+            if (this.voice) confirm.voice = this.voice;
+            this.synth.speak(confirm);
+            this.isUnlocked = true;
+            this.lastEnd = performance.now();
+            this._hud('System Online');
+        }, 100);
     }
 
     /* ═══════════════════ PUBLIC API ═══════════════════ */
@@ -62,7 +71,16 @@ export class SpeechSynthesizer {
         this.queue2   = null;
         this.speaking = false;
         
-        this._speak(text);
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate = 0.95;
+        utterance.pitch = 1.1;
+        if (this.voice) utterance.voice = this.voice;
+        
+        utterance.onstart = () => { this.speaking = true; this._hud('Speaking'); this._sub(text); };
+        utterance.onend   = () => { this.speaking = false; this.lastEnd = performance.now(); this._hud('Idle'); this._drain(); };
+        utterance.onerror = () => { this.speaking = false; this.lastEnd = performance.now(); this._hud('Idle'); this._drain(); };
+        
+        this.synth.speak(utterance);
         this._markRecent(text);
     }
 

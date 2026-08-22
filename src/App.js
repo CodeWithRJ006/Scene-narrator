@@ -11,7 +11,7 @@ import { SpatialReasoning, TIER } from './core/SpatialReasoning.js';
 import { SpeechSynthesizer } from './core/SpeechSynthesizer.js';
 import { SceneNarrator }     from './modules/SceneNarrator.js';
 import { SubtitleManager }   from './modules/SubtitleManager.js';
-import { UIController }       from './ui/UIController.js';
+import { UIController, syncCanvasDimensions }       from './ui/UIController.js';
 
 export class App {
     constructor() {
@@ -150,6 +150,7 @@ export class App {
             }
 
             // ── 60 FPS render (LERP inside drawHUD) ──
+            syncCanvasDimensions(video, this.detector.canvas);
             this.detector.drawHUD(preds);
         };
 
