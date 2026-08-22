@@ -56,10 +56,18 @@ export class SpatialReasoning {
 
     /**
      * Pinhole Optical Distance Calculation
+     * 
+     * MATH: Distance = (RealHeight * FocalLength) / BoundingBoxHeight
+     * ASSUMPTIONS:
+     * - Relies on `REAL_HEIGHTS` averages (e.g., assumes ALL people are exactly 1.7m tall).
+     * - Assumes the object is fully visible and not severely occluded (seeing only half a person doubles the calculated distance).
+     * - Assumes the camera is perpendicular to the object (extreme high/low angles compress the bounding box, creating false distance).
+     * - Uses `max(w, h)` to prevent catastrophic failure if an object (like a phone) is held horizontally.
+     * 
      * @param {string} className – Object class name.
      * @param {number} bboxWidth – Bounding box width in pixels.
      * @param {number} bboxHeight – Bounding box height in pixels.
-     * @returns {number} Distance in meters, clamped 0.5–8.0, 1-decimal precision.
+     * @returns {number} Distance in meters, clamped 0.2–8.0. (Known to degrade exponentially beyond 5m).
      */
     estimateDistance(className, bboxWidth, bboxHeight) {
         const realH = REAL_HEIGHTS[className] || REAL_HEIGHTS.fallback_default;

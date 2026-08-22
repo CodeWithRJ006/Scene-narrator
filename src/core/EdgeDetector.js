@@ -143,7 +143,11 @@ export class EdgeDetector {
             this.ctx.fillRect(x, y, w, h);
 
             if (obj.className !== 'motion') {
-                const distStr  = dist !== undefined ? `${dist.toFixed(1)}m` : '?';
+                let distStr = '?';
+                if (dist !== undefined) {
+                    if (dist < 1.0) distStr = `${dist.toFixed(1)}m`;
+                    else distStr = `~${(Math.round(dist * 2) / 2).toFixed(1).replace('.0', '')}m`;
+                }
                 const prioStr  = obj.priorityLabel || '';
                 const label    = `${obj.className.toUpperCase()}  |  ${distStr}  |  ${prioStr}`;
 

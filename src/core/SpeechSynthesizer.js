@@ -129,25 +129,34 @@ export class SpeechSynthesizer {
      */
     static formatAlert(cls, dist, lateral, tier) {
         const name = cls.charAt(0).toUpperCase() + cls.slice(1);
-        const d = dist.toFixed(1);
+        
+        // Remove false precision: Round to nearest 0.5 meters if > 1m
+        let dStr;
+        if (dist < 1.0) {
+            dStr = dist.toFixed(1);
+        } else {
+            const rounded = Math.round(dist * 2) / 2;
+            dStr = (rounded % 1 === 0) ? rounded.toString() : rounded.toFixed(1);
+            dStr = `about ${dStr}`;
+        }
 
-        const isGadget = ['Cell phone', 'Phone', 'Watch', 'Clock', 'Glasses', 'Specs', 'Earbuds', 'Earphones', 'Keys'].includes(name);
+        const isGadget = ['Cell phone', 'Phone', 'Watch', 'Clock', 'Glasses', 'Specs', 'Earbuds', 'Earphones', 'Keys', 'Mouse'].includes(name);
 
         if (isGadget && dist < 0.8) {
-            return `${name} detected, ${d} meters away.`;
+            return `${name} detected, ${dStr} meters away.`;
         }
 
         if (tier === 1) {
-            if (lateral === 'ahead') return `Warning. ${name} ${d} meters directly ahead.`;
-            return `Warning. ${name} ${d} meters on your ${lateral}.`;
+            if (lateral === 'ahead') return `Warning. ${name}, ${dStr} meters directly ahead.`;
+            return `Warning. ${name}, ${dStr} meters on your ${lateral}.`;
         }
         if (tier === 2) {
-            if (lateral === 'ahead') return `${name} ahead, about ${d} meters away.`;
-            return `${name} on your ${lateral}, about ${d} meters away.`;
+            if (lateral === 'ahead') return `${name} ahead, ${dStr} meters away.`;
+            return `${name} on your ${lateral}, ${dStr} meters away.`;
         }
         // Tier 3
-        if (lateral === 'ahead') return `${name}, ${d} meters ahead.`;
-        return `${name} on your ${lateral}, ${d} meters.`;
+        if (lateral === 'ahead') return `${name}, ${dStr} meters ahead.`;
+        return `${name} on your ${lateral}, ${dStr} meters.`;
     }
 
     /* ═══════════════════ INTERNAL ═══════════════════ */

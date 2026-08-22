@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Distance Validation Eval</title>
+    <style>
+        body { font-family: system-ui; background: #0f141c; color: #fff; padding: 20px; }
+        .card { background: rgba(255,255,255,0.05); padding: 20px; border-radius: 8px; margin-bottom: 20px; }
+        input[type="file"] { margin-bottom: 20px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid rgba(255,255,255,0.1); padding: 8px; text-align: left; }
+        th { background: rgba(255,255,255,0.1); }
+        .error { color: #ef4444; }
+        .success { color: #10b981; }
+    </style>
+</head>
+<body>
+    <h1>InsightLens Pro: Distance Ground-Truth Validation</h1>
+    <div class="card">
+        <h3>Instructions</h3>
+        <p>1. Create a JSON file (e.g. <code>ground_truth.json</code>) formatted as:</p>
+        <pre style="background:#000; padding:10px;">
+[
+  { "image": "person_2m.jpg", "class": "person", "actual_distance": 2.0 },
+  { "image": "chair_1m.jpg", "class": "chair", "actual_distance": 1.0 }
+]
+        </pre>
+        <p>2. Select the JSON file AND all the referenced images at the same time below.</p>
+        <input type="file" id="file-picker" multiple accept=".json, .jpg, .jpeg, .png">
+        <button id="run-btn" style="padding: 8px 16px;">Run Validation</button>
+    </div>
+
+    <div id="results-card" class="card" style="display:none;">
+        <h2>Evaluation Results</h2>
+        <div id="summary"></div>
+        <table>
+            <thead>
+                <tr>
+                    <th>Image</th>
+                    <th>Class</th>
+                    <th>Actual Dist (m)</th>
+                    <th>Predicted Dist (m)</th>
+                    <th>Abs Error (m)</th>
+                </tr>
+            </thead>
+            <tbody id="results-tbody"></tbody>
+        </table>
+    </div>
+
+    <script type="module">
+        import * as tf from '@tensorflow/tfjs';
+        import '@tensorflow/tfjs-backend-webgl';
+        import * as cocoSsd from '@tensorflow-models/coco-ssd';
+        import { SpatialReasoning } from './src/core/SpatialReasoning.js';
+
+        document.getElementById('run-btn').addEventListener('click', async () => {
+            const files = document.getElementById('file-picker').files;
+            if (files.length === 0) return alert('Please select ground_truth.json and images.');
+
+            let jsonFile = null;
+            const imgFiles = {};
+            for (let f of files) {
+                if (f.name.endsWith('.json')) jsonFile = f;
+                else imgFiles[f.name] = f;
+            }
+
+            if (!jsonFile) return alert('No JSON file found in selection.');
+
+            const gtText = await jsonFile.text();
+            const gtData = JSON.parse(gtText);
+
+            document.getElementById('run-btn').innerText = 'Loading Model...';
+            await tf.setBackend('webgl');
+            await tf.ready();
+            const model = await cocoSsd.load({ base: 'lite_mobilenet_v2' });
+            
+            // Assume 1280x720 video constraint for eval
+            const spatial = new SpatialReasoning(1280, 720);
+            
+            const tbody = document.getElementById('results-tbody');
+            tbody.innerHTML = '';
+            document.getElementById('results-card').style.display = 'block';
+
+            let totalError = 0;
+            let worstError = 0;
+            let worstCase = null;
+            let count = 0;
+
+            for (const item of gtData) {
+                const imgFile = imgFiles[item.image];
+                if (!imgFile) continue;
+
+                // Load image to DOM
+                const imgUrl = URL.createObjectURL(imgFile);
+                const imgEl = new Image();
+                imgEl.src = imgUrl;
+                await new Promise(r => imgEl.onload = r);
+
+                document.getElementById('run-btn').innerText = `Processing ${item.image}...`;
+
+                const preds = await model.detect(imgEl);
+                
+                // Find matching class
+                const match = preds.find(p => p.class === item.class);
+                let predDist = null;
+                let error = null;
+                let errHtml = '-';
+
+                if (match) {
+                    const [x, y, w, h] = match.bbox;
+                    predDist = spatial.estimateDistance(item.class, w, h);
+                    error = Math.abs(predDist - item.actual_distance);
+                    
+                    totalError += error;
+                    if (error > worstError) {
+                        worstError = error;
+                        worstCase = item;
+                    }
+                    count++;
+                    errHtml = error.toFixed(2);
+                } else {
+                    errHtml = '<span class="error">Not Detected</span>';
+                }
+
+                tbody.innerHTML += `
+                    <tr>
+                        <td>${item.image}</td>
+                        <td>${item.class}</td>
+                        <td>${item.actual_distance.toFixed(2)}</td>
+                        <td>${predDist !== null ? predDist.toFixed(2) : '-'}</td>
+                        <td>${errHtml}</td>
+                    </tr>
+                `;
+            }
+
+            const mae = count > 0 ? (totalError / count) : 0;
+            
+            document.getElementById('summary').innerHTML = `
+                <p><strong>Images Processed:</strong> ${count} / ${gtData.length}</p>
+                <p><strong>Mean Absolute Error (MAE):</strong> <span class="${mae > 1.0 ? 'error' : 'success'}">${mae.toFixed(2)} meters</span></p>
+                <p><strong>Worst-Case Error:</strong> ${worstError.toFixed(2)} meters (on ${worstCase?.image || 'N/A'})</p>
+                <p style="font-size: 12px; color: #888; margin-top: 10px;">Note: MAE > 1.0m indicates poor calibration for the provided focal length / bounding box dynamics.</p>
+            `;
+
+            document.getElementById('run-btn').innerText = 'Validation Complete';
+        });
+    </script>
+</body>
+</html>
