@@ -209,3 +209,33 @@
     border: 1px solid rgba(0, 255, 136, 0.4);
     box-shadow: 0 0 15px rgba(0, 255, 136, 0.4);
 }
+
+/* =========================================
+   FLOATING ACTION BUTTON
+   ========================================= */
+.fab-mic {
+    position: absolute;
+    bottom: 90px;
+    right: 24px;
+    z-index: 60;
+    padding: 16px 20px;
+    border-radius: 100px;
+    font-size: 15px;
+    font-weight: 700;
+    background: rgba(56, 189, 248, 0.25);
+    color: #38bdf8;
+    border: 1px solid rgba(56, 189, 248, 0.5);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5), 0 0 15px rgba(56, 189, 248, 0.3);
+    cursor: pointer;
+    transition: transform 0.2s, background 0.2s, box-shadow 0.2s;
+}
+
+.fab-mic:hover {
+    background: rgba(56, 189, 248, 0.35);
+    transform: translateY(-2px);
+}
+
+.fab-mic:active {
+    transform: translateY(2px) scale(0.95);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.5), 0 0 10px rgba(56, 189, 248, 0.4);
+}

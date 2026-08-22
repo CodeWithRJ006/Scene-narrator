@@ -53,8 +53,8 @@ export class App {
             () => this.speech.speakT2('Chair on your right, about 2.5 meters away.')
         );
 
-        // Voice Command Trigger (Mic Pill)
-        const btnVoice = document.getElementById('btn-voice');
+        // Voice Command Trigger (FAB)
+        const btnVoice = document.getElementById('voice-btn');
         if (btnVoice) {
             btnVoice.addEventListener('click', () => {
                 this.speech.synth.cancel(); // Stop current speech
