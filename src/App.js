@@ -53,10 +53,21 @@ export class App {
             () => this.speech.speakT2('Chair on your right, about 2.5 meters away.')
         );
 
-        // Voice Command Trigger
+        // Voice Command Trigger (Mic Pill)
         const btnVoice = document.getElementById('btn-voice');
         if (btnVoice) {
             btnVoice.addEventListener('click', () => {
+                this.speech.synth.cancel(); // Stop current speech
+                const u = new SpeechSynthesisUtterance("Listening");
+                this.speech.synth.speak(u);
+                this.voice.startListening();
+            });
+        }
+
+        // Voice Command Trigger (Find Object Button)
+        const btnFindObj = document.getElementById('btn-find-object');
+        if (btnFindObj) {
+            btnFindObj.addEventListener('click', () => {
                 this.speech.synth.cancel(); // Stop current speech
                 const u = new SpeechSynthesisUtterance("Listening");
                 this.speech.synth.speak(u);
@@ -159,11 +170,12 @@ export class App {
                             }
                         }
 
-                        this.navEngine.update(preds, video.videoWidth);
-                        this._updateHUD(preds);
                         if (!triggeredInspect) {
                             this._dispatchSpeech(preds, spoken);
                         }
+                        
+                        this.navEngine.update(preds, video.videoWidth);
+                        this._updateHUD(preds);
                         this.subtitles.update(preds);
                     }
                     inferring = false;
