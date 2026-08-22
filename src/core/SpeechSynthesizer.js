@@ -59,11 +59,13 @@ export class SpeechSynthesizer {
     /**
      * Tier 1 – Barge-in hazard alert. Immediately cancels current speech.
      * @param {string} text  e.g. "Warning. Person 1.2 meters directly ahead."
+     * @param {string} dedupeKey Unique tracking key to avoid rapid double-fires.
      */
-    speakT1(text) {
+    speakT1(text, dedupeKey = null) {
         const now = performance.now();
+        const key = dedupeKey || text;
         if (now - this.lastT1 < this.T1_COOL) return;
-        if (this._isRecent(text, 2500)) return;
+        if (this._isRecent(key, 2500)) return;
         this.lastT1 = now;
         
         // Immediately cancel for barge-in
@@ -83,22 +85,24 @@ export class SpeechSynthesizer {
         utterance.onerror = () => { this.speaking = false; this.lastEnd = performance.now(); this._hud('Idle'); this._drain(); };
         
         this.synth.speak(utterance);
-        this._markRecent(text);
+        this._markRecent(key);
     }
 
     /**
      * Tier 2 – Queued caution alert. Spoken smoothly in silent gaps.
      * @param {string} text  e.g. "Chair on your right, about 2.5 meters away."
+     * @param {string} dedupeKey Unique tracking key.
      */
-    speakT2(text) {
-        if (this._isRecent(text, 4000)) return;
+    speakT2(text, dedupeKey = null) {
+        const key = dedupeKey || text;
+        if (this._isRecent(key, 4000)) return;
         if (this.speaking || this.synth.speaking) {
-            this.queue2 = text;
+            this.queue2 = { text, key };
             return;
         }
         if (navigator.vibrate) navigator.vibrate([150, 100, 150]);
         this._speak(text);
-        this._markRecent(text);
+        this._markRecent(key);
     }
 
     /**
@@ -166,9 +170,10 @@ export class SpeechSynthesizer {
     /** @private Drain Tier 2 queue after current utterance finishes. */
     _drain() {
         if (this.queue2) {
-            const t = this.queue2;
+            const t = this.queue2.text;
+            const k = this.queue2.key;
             this.queue2 = null;
-            setTimeout(() => { this._speak(t); this._markRecent(t); }, 140);
+            setTimeout(() => { this._speak(t); this._markRecent(k); }, 140);
         }
     }
 

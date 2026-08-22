@@ -110,9 +110,13 @@
                 <div class="test-row">
                     <button class="btn-test btn-test--red" id="test-t1" aria-label="Test Tier 1 Hazard Alert">Test Tier-1 Alert</button>
                     <button class="btn-test btn-test--yellow" id="test-t2" aria-label="Test Tier 2 Caution Alert">Test Step-Down Hazard</button>
+                    <button class="btn-test" id="btn-debug" aria-label="Toggle Debug Overlay" style="border: 1px solid rgba(255,255,255,0.3);">Toggle Debug</button>
                 </div>
             </div>
         </div>
+
+        <!-- Debug Overlay (Hidden by default) -->
+        <div id="debug-overlay" aria-hidden="true" style="display:none; position:absolute; top:8px; left:8px; z-index:999; background:rgba(0,0,0,0.85); color:#0f0; font-family:monospace; font-size:11px; padding:12px; border-radius:8px; border:1px solid #0f0; max-width: 250px; text-shadow: none;"></div>
     </div>
 
     <script type="module" src="/src/main.js"></script>

@@ -195,6 +195,7 @@ export class App {
         let preds = [];
         const spoken = new Map();    // trackId → lastSpokenTime
         let fpsCnt = 0, fpsT = performance.now();
+        this._emptyFrames = 0;
 
         const loop = (t) => {
             requestAnimationFrame(loop);
@@ -246,6 +247,21 @@ export class App {
                         this._updateHUD(preds);
                         this.subtitles.update(preds);
                     }
+                    
+                    // Graceful Degradation: Visibility Check
+                    if (!raw || raw.length === 0) {
+                        this._emptyFrames++;
+                        if (this._emptyFrames > 60) { // ~5 seconds of zero detections
+                            this.speech.speakT2("Visibility low. No objects detected.", "visibility_low");
+                            this._emptyFrames = 0; // reset to avoid spamming
+                        }
+                    } else {
+                        // Reset if we see mature predictions or any raw predictions > threshold
+                        if (raw.some(p => p.score > 0.5)) {
+                            this._emptyFrames = 0;
+                        }
+                    }
+                    
                     inferring = false;
                 }).catch(() => { inferring = false; });
             }
@@ -276,10 +292,24 @@ export class App {
      */
     _dispatchSpeech(preds, spoken) {
         const now = performance.now();
+        
+        // Debug overlay logging
+        const debugOverlay = document.getElementById('debug-overlay');
+        let debugHTML = `<div style="margin-bottom:8px"><strong>Vision Debug</strong> | FPS: ${Math.round(1000/12)} (Cap)</div>`;
+
         for (const p of preds) {
             if (p.trackId === undefined || p.className === 'motion') continue;
-            const last = spoken.get(p.trackId) || 0;
-            if (now - last < 4000) continue;
+
+            const isMature = p.isMature;
+            debugHTML += `<div style="color:${isMature ? '#0f0' : '#888'}">[T${p.urgencyTier}] ${p.className} @ ${p.distance}m (Mature: ${isMature})</div>`;
+
+            if (!isMature) continue; // Debounce newly detected objects
+
+            const trackState = spoken.get(p.trackId) || { lastTime: 0, lastTier: 4 };
+            
+            // Re-trigger if 4 seconds passed OR if it escalated to a more severe tier
+            const escalated = p.urgencyTier < trackState.lastTier;
+            if (now - trackState.lastTime < 4000 && !escalated) continue;
 
             const text = SpeechSynthesizer.formatAlert(
                 p.className,
@@ -288,13 +318,20 @@ export class App {
                 p.urgencyTier
             );
 
+            // Deduplication key so slightly different distances on the same frame don't bypass speech synthesizer deduping
+            const dedupeKey = `${p.className}_${p.urgencyTier}`;
+
             if (p.urgencyTier === TIER.HAZARD) {
-                this.speech.speakT1(text);
-                spoken.set(p.trackId, now);
+                this.speech.speakT1(text, dedupeKey);
+                spoken.set(p.trackId, { lastTime: now, lastTier: p.urgencyTier });
             } else if (p.urgencyTier === TIER.CAUTION) {
-                this.speech.speakT2(text);
-                spoken.set(p.trackId, now);
+                this.speech.speakT2(text, dedupeKey);
+                spoken.set(p.trackId, { lastTime: now, lastTier: p.urgencyTier });
             }
+        }
+
+        if (debugOverlay && debugOverlay.style.display === 'block') {
+            debugOverlay.innerHTML = debugHTML;
         }
     }
 }

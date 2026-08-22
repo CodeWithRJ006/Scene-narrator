@@ -34,14 +34,17 @@ export class UIController {
         this.$subText = document.getElementById('sub-text');
         this.$radar   = document.getElementById('target-radar'); // Target Lock UI
 
-        // Test buttons
-        this.$testT1  = document.getElementById('test-t1');
-        this.$testT2  = document.getElementById('test-t2');
-
-        // Drawer state
-        this._drawerOpen = false;
-
-        this._initDrawer();
+        // Test Buttons
+        document.getElementById('test-t1')?.addEventListener('click', () => {
+            if (this.onTestT1) this.onTestT1();
+        });
+        document.getElementById('test-t2')?.addEventListener('click', () => {
+            if (this.onTestT2) this.onTestT2();
+        });
+        document.getElementById('btn-debug')?.addEventListener('click', () => {
+            const overlay = document.getElementById('debug-overlay');
+            if (overlay) overlay.style.display = overlay.style.display === 'none' ? 'block' : 'none';
+        }); this._initDrawer();
         this._initSlider();
         this._restoreApiKey();
     }

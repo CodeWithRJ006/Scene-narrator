@@ -151,26 +151,25 @@ export class SpatialReasoning {
             const hDist = this.hazardDistance || 1.8;
             const cDist = hDist * 1.94; // roughly 3.5m when hDist is 1.8
 
-            // ── Tier Classification ──
+            // ── Tier Classification with Distance Hysteresis ──
             let target = TIER.BG;
-            
             const isGadget = ['cell phone', 'phone', 'watch', 'clock', 'glasses', 'specs', 'earbuds', 'earphones', 'keys', 'mouse'].includes(pred.className);
+            
+            // Expand thresholds slightly if already in that tier (Hysteresis)
+            const hazardThreshold = (tr.tier === TIER.HAZARD) ? (hDist + 0.25) : hDist;
+            const cautionThreshold = (tr.tier === TIER.CAUTION) ? (cDist + 0.4) : cDist;
 
-            if (inCenter && (distance < hDist || isApproaching)) {
-                // Tier 1 (Immediate Hazard): In center path AND distance < hDist OR approaching fast
+            if (inCenter && (distance < hazardThreshold || isApproaching)) {
                 target = TIER.HAZARD;
             } else if (isGadget && distance < 0.8) {
-                // Tier 1 (Priority Gadget): Gadget held closely to camera triggers instant vocal feedback
                 target = TIER.HAZARD;
-            } else if ((inCenter && distance >= hDist && distance <= cDist) || (!inCenter && distance < cDist)) {
-                // Tier 2 (Caution): In center path hDist–cDist or flanking lateral paths (< cDist)
+            } else if ((inCenter && distance <= cautionThreshold) || (!inCenter && distance < cautionThreshold)) {
                 target = TIER.CAUTION;
             } else {
-                // Tier 3 (Context): >cDist or static peripheral objects
                 target = TIER.BG;
             }
 
-            // Hysteresis: instant upgrade, delayed downgrade
+            // Hysteresis: instant upgrade, delayed downgrade (time-based)
             if (target < tr.tier) {
                 tr.tier = target;
                 tr.lastChange = now;
@@ -179,13 +178,16 @@ export class SpatialReasoning {
                 tr.lastChange = now;
             }
 
-            // Priority label for HUD badge
+            pred.urgencyTier = tr.tier;
+            pred.trackId = tr.id;
+            
+            // Debouncing: Track must persist for at least 3 frames before it is "mature" and allowed to speak
+            pred.isMature = tr.history.length >= 3;
             let prioLabel = 'LOW';
             if (tr.tier === TIER.HAZARD)       prioLabel = 'HIGH PRIORITY';
             else if (tr.tier === TIER.CAUTION) prioLabel = 'CAUTION';
 
             // Attach results to prediction
-            pred.urgencyTier   = tr.tier;
             pred.trackId       = tr.id;
             pred.priorityLabel = prioLabel;
             pred.isApproaching = isApproaching;
