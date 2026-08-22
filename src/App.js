@@ -159,7 +159,7 @@ export class App {
                             }
                         }
 
-                        this.navEngine.process(preds);
+                        this.navEngine.update(preds, video.videoWidth);
                         this._updateHUD(preds);
                         if (!triggeredInspect) {
                             this._dispatchSpeech(preds, spoken);
