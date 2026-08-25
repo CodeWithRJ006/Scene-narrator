@@ -33,8 +33,24 @@ export class App {
             const srLive = document.getElementById('aria-live-polite');
 
             if (intent.type === 'TARGET') {
-                this.navEngine.setTarget(intent.payload);
+                console.log(`[App] Target intent matched: ${intent.payload}`);
+                this.navModeOnly = true;
+                const navStatus = document.getElementById('nav-mode-status');
+                if (navStatus) navStatus.textContent = 'Target: ON';
+                const btnNavigation = document.getElementById('btn-navigation');
+                if (btnNavigation) btnNavigation.style.color = '#10b981';
+
+                // Cancel any previous navigation cleanly, then start fresh
+                this.navEngine.cancelNavigation();
+                this.navEngine.startTargetNavigation(intent.payload);
                 this.ui.updateTargetRadar(intent.payload);
+            } else if (intent.type === 'CANCEL') {
+                console.log("[App] Cancel intent matched.");
+                this._resetTargetMode();
+                this.speech.speakT1("Navigation cancelled.");
+            } else if (intent.type === 'ERROR') {
+                console.log(`[App] Error intent matched: ${intent.payload}`);
+                this.speech.speakT1(intent.payload);
             } else if (intent.type === 'PROXIMITY') {
                 let val = Math.max(1, Math.min(10, intent.payload));
                 const proxSlider = document.getElementById('proximity');
@@ -96,26 +112,50 @@ export class App {
             () => this.speech.speakT2('Chair on your right, about 2.5 meters away.')
         );
 
-        // Voice Command Trigger (FAB)
-        const btnVoice = document.getElementById('voice-btn');
-        if (btnVoice) {
-            btnVoice.addEventListener('click', () => {
-                this.speech.synth.cancel(); // Barge-in stop current speech
-                this.speech.playEarcon('start');
-                this.voice.startListening();
-            });
+        // Unified Target Mode Handler
+        const triggerBtns = ['voice-btn', 'btn-voice', 'btn-find-object', 'btn-navigation'];
+        triggerBtns.forEach(id => {
+            const btn = document.getElementById(id);
+            if (btn) {
+                // Ensure only ONE listener per element
+                btn.replaceWith(btn.cloneNode(true));
+                document.getElementById(id).addEventListener('click', () => this._handleFindTargetTrigger());
+            }
+        });
+
+        // Wire arrival callback to reset Target Mode
+        this.navEngine.onArrival = () => {
+            console.log("[App] Arrival detected via engine. Resetting Target Mode.");
+            this._resetTargetMode();
+        };
+    }
+
+    _handleFindTargetTrigger() {
+        console.log("[Find Target] Triggered via UI tap.");
+        if (this.navModeOnly) {
+             console.log("[Find Target] Toggled OFF via button tap.");
+             this._resetTargetMode();
+             this.speech.speakT1("Navigation cancelled. Resuming general hazard detection.");
+             return;
         }
 
-        // Voice Command Trigger (Find Object Button)
-        const btnFindObj = document.getElementById('btn-find-object');
-        if (btnFindObj) {
-            btnFindObj.addEventListener('click', () => {
-                this.speech.synth.cancel(); // Barge-in stop current speech
-                this.speech.playEarcon('start');
-                this.voice.startListening();
-                this.voice.startListening();
-            });
-        }
+        console.log("[Find Target] Speech synthesis cancelled.");
+        this.speech.synth.cancel();
+        
+        this.speech.playEarcon('start');
+        this.speech.speakT1("Listening...");
+        
+        this.voice.startListening();
+    }
+
+    _resetTargetMode() {
+        this.navModeOnly = false;
+        this.navEngine.cancelNavigation();   // cleans state, arrived timer, and lockedTrackId
+        this.ui.updateTargetRadar(null);
+        const navStatus = document.getElementById('nav-mode-status');
+        if (navStatus) navStatus.textContent = 'Target: OFF';
+        const btnNavigation = document.getElementById('btn-navigation');
+        if (btnNavigation) btnNavigation.style.color = '';
     }
 
     /* ─────────── Stage 1 → Stage 2 ─────────── */
@@ -238,28 +278,43 @@ export class App {
                         preds = this.urgency.process(raw);
 
                         let triggeredInspect = false;
-                        for (const p of preds) {
-                            const [x, y, w, h] = p.bbox;
-                            const cx = x + w / 2;
-                            const isExactCenter = cx > video.videoWidth * 0.40 && cx < video.videoWidth * 0.60;
-                            
-                            if (p.distance < 0.4 && isExactCenter && !this._isInspecting) {
-                                this._isInspecting = true;
-                                triggeredInspect = true;
-                                this.narrator.inspectItem(video).then(item => {
-                                    this._isInspecting = false;
-                                    if (item) {
-                                        const cleanItem = item.replace(/[\r\n.]/g, '');
-                                        this.speech.speakT1(`Holding: ${cleanItem}`);
-                                        this.subtitles.showSpoken(`Holding: ${cleanItem}`);
-                                    }
-                                });
-                                break;
+                        if (!this.navModeOnly) {
+                            for (const p of preds) {
+                                const [x, y, w, h] = p.bbox;
+                                const cx = x + w / 2;
+                                const isExactCenter = cx > video.videoWidth * 0.40 && cx < video.videoWidth * 0.60;
+                                
+                                if (p.distance < 0.4 && isExactCenter && !this._isInspecting) {
+                                    this._isInspecting = true;
+                                    triggeredInspect = true;
+                                    this.narrator.inspectItem(video).then(item => {
+                                        this._isInspecting = false;
+                                        if (item) {
+                                            const cleanItem = item.replace(/[\r\n.]/g, '');
+                                            this.speech.speakT1(`Holding: ${cleanItem}`);
+                                            this.subtitles.showSpoken(`Holding: ${cleanItem}`);
+                                        }
+                                    });
+                                    break;
+                                }
                             }
                         }
 
                         if (!triggeredInspect) {
-                            this._dispatchSpeech(preds, spoken);
+                            if (this.navModeOnly) {
+                                // Mute chatter, but allow Tier-1 hazards in central path
+                                const hazards = preds.filter(p => {
+                                    if (p.urgencyTier !== 1) return false;
+                                    const cx = p.bbox[0] + (p.bbox[2]/2);
+                                    const pos = cx / video.videoWidth;
+                                    return pos > 0.25 && pos < 0.75;
+                                });
+                                if (hazards.length > 0) {
+                                    this._dispatchSpeech(hazards, spoken);
+                                }
+                            } else {
+                                this._dispatchSpeech(preds, spoken);
+                            }
                         }
                         
                         this.navEngine.update(preds, video.videoWidth);
@@ -287,7 +342,7 @@ export class App {
 
             // ── 60 FPS render (LERP inside drawHUD) ──
             syncCanvasDimensions(video, this.detector.canvas);
-            this.detector.drawHUD(preds, this.navEngine.activeTarget);
+            this.detector.drawHUD(preds, this.navEngine.activeTarget, this.navEngine.navState, this.navEngine.lockedTrackId);
         };
 
         requestAnimationFrame(loop);

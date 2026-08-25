@@ -31,7 +31,7 @@
             <div class="feature-row">
                 <span class="feature-badge">Sub-100ms Barge-In</span>
                 <span class="feature-badge">Geometric Distance</span>
-                <span class="feature-badge">Edge YOLO</span>
+                <span class="feature-badge">Edge YOLO v26</span>
             </div>
 
             <button id="launch-btn" class="btn-launch">
@@ -46,7 +46,8 @@
     <!-- STAGE 2: ACTIVE HUD      -->
     <!-- ======================== -->
     <div id="app-view" class="app-view hidden">
-        <video id="webcam" autoplay playsinline muted></video>
+        <!-- CSS filter for seamless low-light enhancement -->
+        <video id="webcam" autoplay playsinline muted style="filter: brightness(1.2) contrast(1.1);"></video>
         <canvas id="overlay"></canvas>
 
         <!-- Top HUD Pill -->
@@ -64,6 +65,11 @@
             <div class="hud-cell" id="btn-voice" style="cursor:pointer;" title="Tap to issue voice command (e.g., 'Find the backpack')">
                 <svg class="hud-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" y1="19" x2="12" y2="22"/></svg>
                 <span class="hud-value" id="speech-status">Idle</span>
+            </div>
+            <div class="hud-sep"></div>
+            <div class="hud-cell" id="btn-navigation" style="cursor:pointer;" title="Focus only on target (stops general hazards)">
+                <svg class="hud-mic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="3"/></svg>
+                <span class="hud-value" id="nav-mode-status">Target: OFF</span>
             </div>
         </div>
 

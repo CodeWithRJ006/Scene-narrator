@@ -91,10 +91,12 @@ export class EdgeDetector {
 
     /**
      * Draw AR overlay with LERP-smoothed bounding boxes, distance badges, and urgency glow.
-     * @param {Array} predictions
-     * @param {string|null} activeTarget
+     * @param {Array}       predictions
+     * @param {string|null} activeTarget   – target class name (for fallback matching)
+     * @param {string}      navState       – NavigationEngine.STATE value ('idle','searching','navigating','arrived')
+     * @param {number|null} lockedTrackId  – exact trackId of locked target instance
      */
-    drawHUD(predictions, activeTarget = null) {
+    drawHUD(predictions, activeTarget = null, navState = 'idle', lockedTrackId = null) {
         if (!this.ctx) return;
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
         const LERP = 0.35;
@@ -116,6 +118,7 @@ export class EdgeDetector {
                 if (pred.urgencyTier   !== undefined) t.urgencyTier   = pred.urgencyTier;
                 if (pred.distance      !== undefined) t.distance      = pred.distance;
                 if (pred.priorityLabel !== undefined) t.priorityLabel = pred.priorityLabel;
+                if (pred.trackId       !== undefined) t.trackId       = pred.trackId;
                 t.alpha = Math.min((t.alpha || 0) + 0.15, 1);
                 next.push(t);
             } else {
@@ -125,6 +128,8 @@ export class EdgeDetector {
             }
         }
         this.tracked = next;
+
+        const isNavigating = navState === 'navigating' || navState === 'searching' || navState === 'arrived';
 
         for (const obj of this.tracked) {
             obj._used = false;
@@ -136,13 +141,25 @@ export class EdgeDetector {
             const tier = obj.urgencyTier || 3;
             const dist = obj.distance;
 
+            // Target matching: prefer exact trackId lock, fall back to class name
             let isTargetLock = false;
-            if (activeTarget && (obj.className.toLowerCase().includes(activeTarget) || activeTarget.includes(obj.className.toLowerCase()))) {
-                isTargetLock = true;
+            if (lockedTrackId !== null && obj.trackId !== undefined) {
+                isTargetLock = (obj.trackId === lockedTrackId);
+            } else if (activeTarget && obj.className) {
+                isTargetLock = obj.className.toLowerCase().includes(activeTarget) ||
+                               activeTarget.includes(obj.className.toLowerCase());
+            }
+
+            // Nav-state color for target
+            let targetColor = '#00ff00'; // default green
+            if (isTargetLock) {
+                if (navState === 'searching') targetColor = '#00f0ff';  // cyan — scanning
+                else if (navState === 'navigating') targetColor = '#00ff88'; // green — walking
+                else if (navState === 'arrived')    targetColor = '#f59e0b'; // gold — arrived
             }
 
             let color;
-            if (isTargetLock)                          color = '#ffffff';
+            if (isTargetLock)                          color = targetColor;
             else if (dist !== undefined && dist < 1.8) color = '#ef4444';
             else if (dist !== undefined && dist < 3.5) color = '#f59e0b';
             else if (dist !== undefined)               color = '#10b981';
@@ -151,12 +168,18 @@ export class EdgeDetector {
             else                                       color = '#00f0ff';
 
             this.ctx.save();
-            this.ctx.globalAlpha = obj.alpha;
+            // Dim non-target objects during active navigation to reduce visual clutter
+            this.ctx.globalAlpha = obj.alpha * (isNavigating && !isTargetLock ? 0.35 : 1.0);
+
+            // Pulsing glow on locked target
+            const pulseBlur = isTargetLock
+                ? 30 + Math.abs(Math.sin(performance.now() / 400)) * 20
+                : (tier === 1 ? 24 : 12);
 
             this.ctx.shadowColor = color;
-            this.ctx.shadowBlur  = isTargetLock ? 24 : (tier === 1 ? 24 : 12);
+            this.ctx.shadowBlur  = pulseBlur;
             this.ctx.strokeStyle = color;
-            this.ctx.lineWidth   = isTargetLock ? 4 : (tier === 1 ? 3 : 2);
+            this.ctx.lineWidth   = isTargetLock ? 8 : (tier === 1 ? 3 : 2);
             this.ctx.lineJoin    = 'round';
 
             const cl = Math.min(24, w / 4, h / 4);
@@ -168,7 +191,7 @@ export class EdgeDetector {
             this.ctx.stroke();
 
             this.ctx.shadowBlur = 0;
-            this.ctx.fillStyle = this._hexA(color, 0.07);
+            this.ctx.fillStyle = this._hexA(color, isTargetLock ? 0.12 : 0.07);
             this.ctx.fillRect(x, y, w, h);
 
             if (obj.className !== 'motion') {
@@ -177,8 +200,12 @@ export class EdgeDetector {
                     if (dist < 1.0) distStr = `${dist.toFixed(1)}m`;
                     else distStr = `~${(Math.round(dist * 2) / 2).toFixed(1).replace('.0', '')}m`;
                 }
-                const prioStr  = obj.priorityLabel || '';
-                const label    = `${obj.className.toUpperCase()}  |  ${distStr}  |  ${prioStr}`;
+                const prioStr = obj.priorityLabel || '';
+                let label = `${obj.className.toUpperCase()}  |  ${distStr}  |  ${prioStr}`;
+                if (isTargetLock) {
+                    const stateIcon = navState === 'searching' ? '🔍' : navState === 'arrived' ? '✅' : '🎯';
+                    label = `${stateIcon} TARGET: ${obj.className.toUpperCase()} | ${distStr}`;
+                }
 
                 this.ctx.font = '600 12px Inter, system-ui, sans-serif';
                 const tw = this.ctx.measureText(label).width;

@@ -143,18 +143,33 @@ export class SceneNarrator {
 
     /* ──── Mode 1: HuggingFace (Free) ──── */
 
-    /** @private Free serverless image captioning via BLIP. */
+    /** @private Free serverless image captioning via BLIP with offline fallback. */
     async _hf(video) {
         const c    = this._snap(video);
         const blob = await new Promise(r =>
             c.toDataURL('image/jpeg', 0.7) && c.toBlob(r, 'image/jpeg', 0.7)
         );
 
-        const res = await fetch(this.HF_URL, { method: 'POST', body: blob });
-        if (!res.ok) { console.warn('HF status', res.status); return null; }
-        const json = await res.json();
-        if (Array.isArray(json) && json[0]?.generated_text) return json[0].generated_text;
-        return null;
+        try {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 4000);
+            
+            const res = await fetch(this.HF_URL, { 
+                method: 'POST', 
+                body: blob,
+                signal: controller.signal
+            });
+            clearTimeout(timeoutId);
+
+            if (!res.ok) throw new Error(`HF status ${res.status}`);
+            
+            const json = await res.json();
+            if (Array.isArray(json) && json[0]?.generated_text) return json[0].generated_text;
+            return this._localFallback();
+        } catch (e) {
+            console.warn('HF network request failed (offline?), using local fallback:', e.message);
+            return this._localFallback();
+        }
     }
 
     /* ──── Mode 2: Gemini 2.5 Flash ──── */
